@@ -3,8 +3,6 @@ extern crate error_chain;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-#[macro_use]
-extern crate clap;
 extern crate dotenv;
 extern crate reqwest;
 extern crate chrono;
@@ -14,22 +12,13 @@ mod errors;
 mod pull_list;
 
 use errors::*;
-use pull_list::{Predicate, print_pulls_for_repo, app};
+use pull_list::print_repos;
 use dotenv::dotenv;
 
-fn run() -> Result<()> {
+fn run() -> Result<i32> {
     dotenv().ok();
-
-    let args = app().get_matches();
-    let pred = Predicate::from_args(&args)?;
-
-    let repos: &[&str] = &["niciliketo/auction", "niciliketo/auction-frontend"];
-
-    for repo in repos {
-        print_pulls_for_repo(&repo, &pred)?;
-    }
-
-    Ok(())
+    print_repos()?;
+    Ok(0)
 }
 
 quick_main!(run);

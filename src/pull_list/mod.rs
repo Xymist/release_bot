@@ -1,20 +1,70 @@
 use reqwest;
 use errors::*;
 use std::{env, fmt};
-use chrono::{DateTime, Datelike, NaiveDate, Local, offset};
+use chrono::{DateTime, NaiveDate, Utc, TimeZone, offset};
 use hyper::header::{Authorization, Link, RelationType};
-use clap::{App, Arg, ArgMatches};
 use serde::de::DeserializeOwned;
 
-const EXCLUDE_LOGIN_ARG: &str = "login";
-const SINCE_ARG: &str = "since";
-const UNTIL_ARG: &str = "until";
+fn repo_list() -> Vec<Repo> {
+    return vec![
+        Repo {
+            name: String::from("niciliketo/auction-frontend"),
+            base: String::from("master"),
+        },
+        Repo {
+            name: String::from("niciliketo/auction"),
+            base: String::from("development"),
+        },
+    ];
+}
 
 #[derive(Deserialize, Debug)]
 struct User {
     login: String,
     id: u32,
-    // remaining fields not deserialized for brevity
+}
+
+#[derive(Deserialize, Debug)]
+struct Release {
+    // id: u32,
+    // name: String,
+    // tag_name: String,
+    // body: String,
+    created_at: DateTime<offset::Utc>,
+}
+
+// impl fmt::Display for Release {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(f, "- {} {}, {}", self.name, self.body, self.created_at)
+//     }
+// }
+
+#[derive(Debug)]
+struct Repo {
+    name: String,
+    base: String,
+}
+
+impl Repo {
+    fn most_recent_release(&self) -> Result<Release> {
+        let url = format!("https://api.github.com/repos/{}/releases/latest", self.name);
+        let client = reqwest::Client::new();
+        let mut req = client.get(&url);
+
+        if let Some(ref token) = env::var("GITHUB_TOKEN").ok() {
+            req.header(Authorization(format!("token {}", token)));
+        }
+
+        let mut response = req.send()?;
+
+        match response.status() {
+            reqwest::StatusCode::Ok => Ok(response.json::<Release>()?),
+            reqwest::StatusCode::NotFound => Ok(Release {
+                created_at: Utc.ymd(2000, 01, 01).and_hms(0, 0, 0),
+            }),
+            _ => bail!("Server error: {:?}", response.status()),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -23,13 +73,6 @@ struct Pull {
     title: String,
     user: User,
     closed_at: DateTime<offset::Utc>,
-    // remaining fields not deserialized for brevity
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Repo {
-    pub full_name: String,
-    // remaining fields not deserialized for brevity
 }
 
 impl fmt::Display for Pull {
@@ -44,19 +87,19 @@ impl fmt::Display for Pull {
     }
 }
 
-struct PaginatedIter<T> {
+struct PRIterator<T> {
     items: <Vec<T> as IntoIterator>::IntoIter,
     next_link: Option<String>,
     client: reqwest::Client,
     github_token: Option<String>,
 }
 
-impl<T> PaginatedIter<T>
+impl<T> PRIterator<T>
 where
     T: DeserializeOwned,
 {
     fn for_addr(url: &str) -> Result<Self> {
-        Ok(PaginatedIter {
+        Ok(PRIterator {
             items: Vec::new().into_iter(),
             next_link: Some(url.to_owned()),
             client: reqwest::Client::new(),
@@ -87,6 +130,8 @@ where
 
         self.items = response.json::<Vec<T>>()?.into_iter();
 
+        // The response that GitHub's API will give is limited to a few PRs;
+        // a header is attached with the url of the next set.
         if let Some(header) = response.headers().get::<Link>() {
             for val in header.values() {
                 if val.rel()
@@ -103,7 +148,7 @@ where
     }
 }
 
-impl<T> Iterator for PaginatedIter<T>
+impl<T> Iterator for PRIterator<T>
 where
     T: DeserializeOwned,
 {
@@ -118,83 +163,32 @@ where
     }
 }
 
-pub struct Predicate {
+struct Predicate {
     since: Option<NaiveDate>,
-    until: Option<NaiveDate>,
-    exclude_login: Option<String>,
 }
 
 impl Predicate {
-    pub fn from_args<'a>(args: &ArgMatches<'a>) -> Result<Predicate> {
-        let exclude_login = args.value_of(EXCLUDE_LOGIN_ARG).map(String::from);
-
+    fn from_release<'a>(release: &Release) -> Result<Predicate> {
         Ok(Predicate {
-            since: date_arg(args, SINCE_ARG)?,
-            until: date_arg(args, UNTIL_ARG)?,
-            exclude_login: exclude_login,
+            since: Some(release.created_at.date().naive_utc()),
         })
     }
 
     fn test(&self, pull: &Pull) -> bool {
         let pull_closed = pull.closed_at.date().naive_utc();
-        self.since.map(|v| pull_closed > v).unwrap_or(true) &&
-            self.until.map(|v| pull_closed < v).unwrap_or(true) &&
-            self.exclude_login
-                .as_ref()
-                .map(|ex| *ex != pull.user.login)
-                .unwrap_or(true)
+        self.since.map(|v| pull_closed > v).unwrap_or(true)
     }
 }
 
-pub fn app<'a, 'b>() -> App<'a, 'b> {
-    let args = vec![
-        Arg::with_name(SINCE_ARG)
-            .short("s")
-            .long("since")
-            .takes_value(true)
-            .help("start date argument dd.mm.yyyy"),
-        Arg::with_name(UNTIL_ARG)
-            .short("u")
-            .long("until")
-            .takes_value(true)
-            .help("end date argument dd.mm.yyyy"),
-        Arg::with_name(EXCLUDE_LOGIN_ARG)
-            .short("e")
-            .long("exclude-login")
-            .takes_value(true)
-            .help("omit PR's by given login (bots etc.)"),
-    ];
-    App::new("pulls_since")
-        .version(crate_version!())
-        .about(
-            "Print Markdown formatted list of pull requests closed since given date",
-        )
-        .args(&args)
-}
+fn print_pulls_for_repo(repo: &Repo, pred: &Predicate) -> Result<()> {
 
-fn parse_date(date: &str) -> Result<NaiveDate> {
-    Ok(NaiveDate::parse_from_str(date, "%Y/%m/%d")
-        .or_else(|_| NaiveDate::parse_from_str(date, "%d.%m.%Y"))
-        .or_else(|_| {
-            NaiveDate::parse_from_str(&format!("{}.{}", date, Local::now().year()), "%d.%m.%Y")
-        })?)
-}
-
-
-fn date_arg<'a>(args: &ArgMatches<'a>, key: &str) -> Result<Option<NaiveDate>> {
-    match args.value_of(key) {
-        Some(key_s) => parse_date(key_s).map(Some),
-        None => Ok(None),
-    }
-}
-
-pub fn print_pulls_for_repo(repo: &str, pred: &Predicate) -> Result<()> {
     let url = format!(
-        "https://api.github.com/repos/{}/pulls?state=closed&base=development",
-        repo
+        "https://api.github.com/repos/{}/pulls?state=closed&base={}",
+        repo.name,
+        repo.base
     );
 
-    let mut pulls = PaginatedIter::for_addr(&url)?
+    let mut pulls = PRIterator::for_addr(&url)?
         .filter_map(Result::ok)
         .filter(|pull| pred.test(pull))
         .peekable();
@@ -203,10 +197,26 @@ pub fn print_pulls_for_repo(repo: &str, pred: &Predicate) -> Result<()> {
         return Ok(());
     }
 
-    println!("\n#### {} ####\n", repo);
+    println!("\n#### {} ####\n", repo.name);
 
     for pull in pulls {
         println!("{}", pull);
     }
+
+    Ok(())
+}
+
+pub fn print_repos() -> Result<()> {
+    for repo in repo_list().into_iter() {
+        let last_release = match repo.most_recent_release() {
+            Ok(release) => Some(release),
+            Err(_) => None,
+        };
+        if last_release.is_some() {
+            let pred = Predicate::from_release(&last_release.unwrap())?;
+            print_pulls_for_repo(&repo, &pred)?;
+        }
+    }
+
     Ok(())
 }
