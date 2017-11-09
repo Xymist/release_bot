@@ -7,9 +7,13 @@ extern crate dotenv;
 extern crate reqwest;
 extern crate chrono;
 extern crate hyper;
+extern crate regex;
+#[macro_use]
+extern crate lazy_static;
 
 mod errors;
 mod pull_list;
+mod zoho_bugs;
 
 use errors::*;
 use pull_list::print_repos;
