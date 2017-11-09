@@ -24,8 +24,12 @@ impl Pull {
         self
     }
 
+    // TODO: This can't possibly need two regexes. Just better specify the first
+    // and use the results from that directly.
     fn parse_tickets(&self) -> Option<Vec<String>> {
         lazy_static! {
+            // Rather specific to our method of tagging. This is fragile,
+            // can we do better?
             static ref TKS: Regex = Regex::new(r"^\[(#(MD|CD|QQ)?\d+(, )?)+\]").unwrap();
             static ref TK: Regex = Regex::new(r"#((MD|CD|QQ)?\d+)").unwrap();
         }
@@ -35,9 +39,12 @@ impl Pull {
             Some(tag_list) => tag_list,
             None => return None,
         };
-
+        // Then we collect the ticket references themselves
         let t_iter = TK.captures_iter(&tk_tag_list[0]);
         let tags: Vec<String> = t_iter.map(|tk_tag| format!("{}", &tk_tag[0])).collect();
-        return Some(tags);
+        match tags.len() {
+            0 => None,
+            _ => Some(tags),
+        }
     }
 }

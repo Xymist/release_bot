@@ -8,7 +8,7 @@ pub struct Predicate {
 }
 
 impl Predicate {
-    pub fn from_release<'a>(release: &Release) -> Result<Predicate> {
+    pub fn from_release(release: &Release) -> Result<Predicate> {
         Ok(Predicate {
             since: Some(release.created_at.date().naive_utc()),
         })
