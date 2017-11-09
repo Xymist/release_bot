@@ -14,13 +14,7 @@ pub struct Pull {
 
 impl fmt::Display for Pull {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "- @{} [{}]({})",
-            self.user.login,
-            self.title,
-            self.html_url
-        )
+        write!(f, "- [{}]({})", self.title, self.html_url)
     }
 }
 
@@ -33,7 +27,7 @@ impl Pull {
     fn parse_tickets(&self) -> Option<Vec<String>> {
         lazy_static! {
             static ref TKS: Regex = Regex::new(r"^\[(#(MD|CD|QQ)?\d+(, )?)+\]").unwrap();
-            static ref TK: Regex = Regex::new(r"(#(MD|CD|QQ)?\d+)").unwrap();
+            static ref TK: Regex = Regex::new(r"#((MD|CD|QQ)?\d+)").unwrap();
         }
 
         // First we get the entire [#MD1234, #MD5678] section
