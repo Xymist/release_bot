@@ -3,7 +3,7 @@ mod predicate;
 mod release;
 mod repo;
 mod pull;
-mod user;
+mod github_user;
 
 use errors::*;
 use self::repo::Repo;

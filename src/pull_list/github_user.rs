@@ -1,5 +1,5 @@
 #[derive(Deserialize, Debug)]
-pub struct User {
+pub struct GithubUser {
     pub id: u32,
     pub login: String,
 }

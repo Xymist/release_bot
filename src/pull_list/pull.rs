@@ -1,13 +1,13 @@
 use chrono::{DateTime, offset};
 use std::fmt;
-use pull_list::user::User;
+use pull_list::github_user::GithubUser;
 use regex::Regex;
 
 #[derive(Deserialize, Debug)]
 pub struct Pull {
     html_url: String,
     title: String,
-    pub user: User,
+    pub user: GithubUser,
     pub bug_tickets: Option<Vec<String>>,
     pub closed_at: DateTime<offset::Utc>,
 }
