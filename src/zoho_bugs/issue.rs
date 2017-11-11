@@ -75,6 +75,7 @@ impl fmt::Display for Issue {
 }
 
 pub fn build_list(
+    project_id: &str,
     milestone: String,
     issue_labels: Vec<String>,
     config: &Config,
@@ -85,7 +86,7 @@ pub fn build_list(
         format!(
             "https://projectsapi.zoho.com/restapi/portal/{}/projects/{}/milestones/?authtoken={}",
             &config.zoho_organisation,
-            "328792000000016009",
+            project_id,
             zoho_authtoken,
         );
     let mut milestone_req = client.get(&milestone_url);
@@ -96,14 +97,14 @@ pub fn build_list(
     let msl = milestone_response.json::<MilestoneList>()?;
     let ms = match msl.milestones {
         Some(ms) => ms.into_iter().find(|m| m.name == milestone),
-        None => Some(Milestone::default()),
+        None => bail!("No Milestone Found!"),
     };
 
     let bugs_url =
         format!(
             "https://projectsapi.zoho.com/restapi/portal/{}/projects/{}/bugs/?authtoken={}&milestone=[{}]",
             &config.zoho_organisation,
-            "328792000000016009",
+            project_id,
             zoho_authtoken,
             ms.unwrap().id,
         );

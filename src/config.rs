@@ -29,13 +29,18 @@ fn project_list() -> Vec<Project> {
             id: String::from("328792000000016009"),
             milestone: String::from("11.2.6"),
         },
+        Project {
+            name: String::from("Quick Quotes"),
+            id: String::from("328792000012869177"),
+            milestone: String::from("Phase 1 (Beta release)"),
+        },
     ];
 }
 
 #[derive(Clone)]
 pub struct Project {
-    name: String,
-    id: String,
+    pub name: String,
+    pub id: String,
     pub milestone: String,
 }
 

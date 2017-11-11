@@ -37,7 +37,7 @@ pub fn print_bugs(issues: IssueList) -> Result<()> {
     let mut sortable: Vec<(&String, &Vec<Issue>)> = client_list.iter().collect();
     sortable.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
     for (client, client_bugs) in sortable {
-        println!("\n#### {} ({})", client, client_bugs.len());
+        println!("\n#### {} ({})\n", client, client_bugs.len());
         for client_bug in client_bugs.iter() {
             println!("{}", client_bug);
         }
