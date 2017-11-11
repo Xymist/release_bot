@@ -1,7 +1,7 @@
 use errors::*;
-use std::{fmt, env};
-use zoho_bugs::winnower::Winnower;
+use std::fmt;
 use reqwest;
+use Config;
 
 #[derive(Deserialize, Debug)]
 pub struct IssueList {
@@ -11,10 +11,15 @@ pub struct IssueList {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct MilestoneList {
+    pub milestones: Option<Vec<Milestone>>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct Issue {
     pub key: Option<String>,
     pub title: Option<String>,
-    pub milestone: Option<Milestone>,
+    pub milestone: Option<IssueMilestone>,
     pub customfields: Option<Vec<CustomField>>,
 }
 
@@ -28,12 +33,27 @@ pub struct CustomField {
 #[derive(Deserialize, Debug, Clone)]
 pub struct Milestone {
     pub name: String,
-    pub id: String,
+    pub id: u64,
 }
 
 impl Default for Milestone {
     fn default() -> Milestone {
         Milestone {
+            name: String::from("No Milestone"),
+            id: 0,
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct IssueMilestone {
+    pub name: String,
+    pub id: String,
+}
+
+impl Default for IssueMilestone {
+    fn default() -> IssueMilestone {
+        IssueMilestone {
             name: String::from("No Milestone"),
             id: String::from("0"),
         }
@@ -51,26 +71,49 @@ impl fmt::Display for Issue {
     }
 }
 
-pub fn build_list(milestone: String, issue_labels: Vec<String>) -> Result<IssueList> {
+pub fn build_list(
+    milestone: String,
+    issue_labels: Vec<String>,
+    config: &Config,
+) -> Result<IssueList> {
     let client = reqwest::Client::new();
-    let zoho_authtoken = env::var("ZOHO_AUTHTOKEN").ok();
-    let url =
+    let zoho_authtoken = &config.zoho_authtoken;
+    let milestone_url =
         format!(
-            "https://projectsapi.zoho.com/restapi/portal/{}/projects/{}/bugs/?authtoken={}",
-            "marketdojo",
+            "https://projectsapi.zoho.com/restapi/portal/{}/projects/{}/milestones/?authtoken={}",
+            &config.zoho_organisation,
             "328792000000016009",
-            zoho_authtoken.unwrap(),
+            zoho_authtoken,
         );
-    let mut req = client.get(&url);
-    let mut response = req.send()?;
-    if !response.status().is_success() {
-        bail!("Server error: {:?}", response.status());
+    let mut milestone_req = client.get(&milestone_url);
+    let mut milestone_response = milestone_req.send()?;
+    if !milestone_response.status().is_success() {
+        bail!("Server error: {:?}", milestone_response.status());
+    };
+    let msl = milestone_response.json::<MilestoneList>()?;
+    let ms = match msl.milestones {
+        Some(ms) => ms.into_iter().find(|m| m.name == milestone),
+        None => Some(Milestone::default()),
     };
 
-    let mut il = response.json::<IssueList>()?;
+    let bugs_url =
+        format!(
+            "https://projectsapi.zoho.com/restapi/portal/{}/projects/{}/bugs/?authtoken={}&milestone=[{}]",
+            &config.zoho_organisation,
+            "328792000000016009",
+            zoho_authtoken,
+            ms.unwrap().id,
+        );
+    let mut bugs_req = client.get(&bugs_url);
+    let mut bugs_response = bugs_req.send()?;
+    if !bugs_response.status().is_success() {
+        bail!("Server error: {:?}", bugs_response.status());
+    };
+    let mut il = bugs_response.json::<IssueList>()?;
+
     il.milestone = Some(milestone);
     il.issue_labels = Some(issue_labels);
-    return Ok(il);
+    Ok(il)
 }
 
 impl Issue {
@@ -79,12 +122,6 @@ impl Issue {
             return false;
         }
         let cfs = self.customfields.as_ref().unwrap();
-        let vec_cfs: Vec<&CustomField> = cfs.iter()
-            .filter(|cf| cf.label_name == String::from("From a client:"))
-            .collect();
-        if vec_cfs.len() > 0 {
-            return true;
-        }
-        false
+        cfs.iter().any(|cf| cf.label_name == "From a client:")
     }
 }

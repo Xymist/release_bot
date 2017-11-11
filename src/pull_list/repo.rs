@@ -4,10 +4,11 @@ use pull_list::release::Release;
 use pull_list::predicate::Predicate;
 use pull_list::pull::Pull;
 use pull_list::pr_iterator::PRIterator;
+use Config;
 use hyper::header::Authorization;
-use std::{env, fmt};
+use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Repo {
     pub name: String,
     pub base: String,
@@ -19,7 +20,7 @@ impl fmt::Display for Repo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "\n## {}\n\n###Last Release: {}\n",
+            "\n## Closed Pull Requests for {}\n\n###Last Release: {}\n",
             self.name,
             self.last_release.as_ref().unwrap()
         )
@@ -27,14 +28,14 @@ impl fmt::Display for Repo {
 }
 
 impl Repo {
-    pub fn construct(&mut self) -> Result<()> {
-        self.populate_last_release()?;
-        self.populate_pulls()?;
+    pub fn construct(&mut self, config: &Config) -> Result<()> {
+        self.populate_last_release(config)?;
+        self.populate_pulls(config)?;
 
         Ok(())
     }
 
-    fn populate_last_release(&mut self) -> Result<()> {
+    fn populate_last_release(&mut self, config: &Config) -> Result<()> {
         if self.last_release.is_some() {
             return Ok(());
         }
@@ -42,9 +43,7 @@ impl Repo {
         let client = reqwest::Client::new();
         let mut req = client.get(&url);
 
-        if let Some(ref token) = env::var("GITHUB_TOKEN").ok() {
-            req.header(Authorization(format!("token {}", token)));
-        }
+        req.header(Authorization(format!("token {}", config.github_token)));
 
         let mut response = req.send()?;
 
@@ -57,12 +56,12 @@ impl Repo {
         Ok(())
     }
 
-    fn populate_pulls(&mut self) -> Result<()> {
+    fn populate_pulls(&mut self, config: &Config) -> Result<()> {
         if self.pulls.is_some() {
             return Ok(());
         }
 
-        let pred = Predicate::from_release(&self.last_release.as_ref().unwrap())?;
+        let pred = Predicate::from_release(self.last_release.as_ref().unwrap())?;
 
         let url = format!(
             "https://api.github.com/repos/{}/pulls?state=closed&base={}",
@@ -70,9 +69,8 @@ impl Repo {
             self.base
         );
 
-        let mut pull_iter = PRIterator::for_addr(&url)?
+        let mut pull_iter = PRIterator::for_addr(&url, pred, config)?
             .filter_map(Result::ok)
-            .filter(|pull| pred.test(pull))
             .peekable();
 
         if pull_iter.peek().is_none() {

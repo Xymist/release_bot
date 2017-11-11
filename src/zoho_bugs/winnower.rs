@@ -1,5 +1,5 @@
 use errors::*;
-use zoho_bugs::issue::{Issue, Milestone};
+use zoho_bugs::issue::Issue;
 
 pub struct Winnower {
     milestone: Option<String>,

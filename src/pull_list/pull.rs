@@ -3,7 +3,7 @@ use std::fmt;
 use pull_list::github_user::GithubUser;
 use regex::Regex;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Pull {
     html_url: String,
     title: String,
@@ -41,7 +41,7 @@ impl Pull {
         };
         // Then we collect the ticket references themselves
         let t_iter = TK.captures_iter(&tk_tag_list[0]);
-        let tags: Vec<String> = t_iter.map(|tk_tag| format!("{}", &tk_tag[0])).collect();
+        let tags: Vec<String> = t_iter.map(|tk_tag| tk_tag[1].to_string()).collect();
         match tags.len() {
             0 => None,
             _ => Some(tags),

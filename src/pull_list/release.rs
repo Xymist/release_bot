@@ -1,7 +1,7 @@
 use std::fmt;
 use chrono::{Utc, TimeZone, DateTime, offset};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Release {
     pub id: Option<u32>,
     pub name: Option<String>,
@@ -28,7 +28,7 @@ impl Default for Release {
             name: Some(String::from("First Commit")),
             tag_name: None,
             body: None,
-            created_at: Utc.ymd(2001, 01, 01).and_hms(0, 0, 0),
+            created_at: Utc.ymd(2001, 1, 1).and_hms(0, 0, 0),
         }
     }
 }

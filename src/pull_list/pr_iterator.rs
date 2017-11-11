@@ -1,30 +1,30 @@
 use reqwest;
 use errors::*;
-use std::env;
 use hyper::header::{Authorization, Link, RelationType};
-use serde::de::DeserializeOwned;
+use pull_list::predicate::Predicate;
+use pull_list::pull::Pull;
+use Config;
 
-pub struct PRIterator<T> {
-    pub items: <Vec<T> as IntoIterator>::IntoIter,
+pub struct PRIterator {
+    pub items: <Vec<Pull> as IntoIterator>::IntoIter,
     pub next_link: Option<String>,
     pub client: reqwest::Client,
-    pub github_token: Option<String>,
+    pub github_token: String,
+    pub predicate: Predicate,
 }
 
-impl<T> PRIterator<T>
-where
-    T: DeserializeOwned,
-{
-    pub fn for_addr(url: &str) -> Result<Self> {
+impl PRIterator {
+    pub fn for_addr(url: &str, pred: Predicate, config: &Config) -> Result<Self> {
         Ok(PRIterator {
             items: Vec::new().into_iter(),
             next_link: Some(url.to_owned()),
             client: reqwest::Client::new(),
-            github_token: env::var("GITHUB_TOKEN").ok(),
+            github_token: config.github_token.clone(),
+            predicate: pred,
         })
     }
 
-    fn try_next(&mut self) -> Result<Option<T>> {
+    fn try_next(&mut self) -> Result<Option<Pull>> {
         if let Some(pull) = self.items.next() {
             return Ok(Some(pull));
         }
@@ -36,27 +36,33 @@ where
         let url = self.next_link.take().unwrap();
         let mut req = self.client.get(&url);
 
-        if let Some(ref token) = self.github_token {
-            req.header(Authorization(format!("token {}", token)));
-        }
+        req.header(Authorization(format!("token {}", &self.github_token)));
 
         let mut response = req.send()?;
         if !response.status().is_success() {
             bail!("Server error: {:?}", response.status());
         }
+        let items: Vec<Pull> = response
+            .json::<Vec<Pull>>()?
+            .into_iter()
+            .filter(|pull| self.predicate.test(pull))
+            .collect();
+        self.items = items.into_iter();
 
-        self.items = response.json::<Vec<T>>()?.into_iter();
-
-        // The response that GitHub's API will give is limited to a few PRs;
-        // a header is attached with the url of the next set.
-        if let Some(header) = response.headers().get::<Link>() {
-            for val in header.values() {
-                if val.rel()
-                    .map(|rel| rel.contains(&RelationType::Next))
-                    .unwrap_or(false)
-                {
-                    self.next_link = Some(val.link().to_owned());
-                    break;
+        // We only bother getting the next set if the one we just processed
+        // appears not to be the end of the collection.
+        if self.items.len() == 100 {
+            // The response that GitHub's API will give is limited to a few PRs;
+            // a header is attached with the url of the next set.
+            if let Some(header) = response.headers().get::<Link>() {
+                for val in header.values() {
+                    if val.rel()
+                        .map(|rel| rel.contains(&RelationType::Next))
+                        .unwrap_or(false)
+                    {
+                        self.next_link = Some(val.link().to_owned());
+                        break;
+                    }
                 }
             }
         }
@@ -65,11 +71,8 @@ where
     }
 }
 
-impl<T> Iterator for PRIterator<T>
-where
-    T: DeserializeOwned,
-{
-    type Item = Result<T>;
+impl Iterator for PRIterator {
+    type Item = Result<Pull>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.try_next() {

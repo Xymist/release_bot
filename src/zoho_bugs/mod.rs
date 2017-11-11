@@ -14,29 +14,30 @@ pub fn print_bugs(issues: IssueList) -> Result<()> {
     )?;
     let bugs = issues.bugs.unwrap();
     let buglist: Vec<Issue> = bugs.into_iter().filter(|bug| win.test(bug)).collect();
-    println!("\n### This milestone contained {} issues:\n", buglist.len());
-    let mut clients: HashMap<String, Vec<Issue>> = HashMap::new();
+    // println!("\n### This milestone contained {} issues:\n", buglist.len());
+    let mut client_list: HashMap<String, Vec<Issue>> = HashMap::new();
     for bug in buglist {
-        let client: String = if bug.has_client() {
-            let cfs = bug.customfields.clone().unwrap();
-            let mut vec_cfs: Vec<CustomField> = cfs.into_iter()
-                .filter(|cf| cf.label_name == String::from("From a client:"))
+        let clients: Vec<String> = if bug.has_client() {
+            let cfs: Vec<CustomField> = bug.customfields.clone().unwrap();
+            let mut vec_cfs: Vec<String> = cfs.into_iter()
+                .filter(|cf| cf.label_name == "From a client:")
+                .map(|cf| cf.value.to_title_case())
                 .collect();
-            vec_cfs.remove(0).value.to_title_case()
+            vec_cfs
         } else {
-            String::from("No Associated Customer")
+            vec![String::from("No Associated Customer")]
         };
-
-        let client_bugs = clients.entry(client).or_insert(vec![]);
-        client_bugs.push(bug)
-
+        for client in clients {
+            let client_bugs = client_list.entry(client).or_insert(vec![]);
+            client_bugs.push(bug.clone())
+        }
     }
 
-    let mut sortable: Vec<(&String, &Vec<Issue>)> = clients.iter().collect();
+    let mut sortable: Vec<(&String, &Vec<Issue>)> = client_list.iter().collect();
     sortable.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
     for (client, client_bugs) in sortable {
         println!("\n#### {} ({})", client, client_bugs.len());
-        for client_bug in client_bugs.into_iter() {
+        for client_bug in client_bugs.iter() {
             println!("{}", client_bug);
         }
     }
