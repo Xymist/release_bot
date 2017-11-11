@@ -44,7 +44,12 @@ fn print_preamble(config: &Config) -> Result<()> {
         .collect();
     let milestones = milestone_list.join(", ");
     println!(
-        "We have released a new version of Market Dojo to live.\n\nPlease let your customers know if they are listed and you feel the fixes will be relevant to them.\n\nThis includes development of the {} milestones. A complete list of changes is attached.\n\nMany thanks to the whole team who have worked incredibly hard to make this release possible.\n",
+        "We have released a new version of Market Dojo to live.\n\n\
+        Please let your customers know if they are listed and you feel \
+        the fixes will be relevant to them.\n\nThis includes development \
+        of the {} milestones. A complete list of changes is attached.\n\n\
+        Many thanks to the whole team who have worked incredibly hard \
+        to make this release possible.\n",
         milestones
     );
     Ok(())
