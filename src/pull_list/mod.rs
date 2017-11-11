@@ -26,7 +26,8 @@ pub fn print_repo(repo: Repo) -> Result<()> {
             // need to be fully capitalized... might need something custom.
             // Or just ignore it, it's probable that nobody will complain.
             let contributor = pull.user.login.clone().to_title_case();
-            let cont_pulls = contributors.entry(contributor).or_insert(vec![]);
+            let blank = vec![];
+            let cont_pulls = contributors.entry(contributor).or_insert(blank);
             cont_pulls.push(pull)
         }
 

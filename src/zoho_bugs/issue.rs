@@ -3,6 +3,9 @@ use std::fmt;
 use reqwest;
 use Config;
 
+// FIXME: This only exists because the Zoho API returns an object containing an
+// array of bugs, rather than just an array of bugs. Maybe Serde has a way
+// around this?
 #[derive(Deserialize, Debug)]
 pub struct IssueList {
     pub milestone: Option<String>,

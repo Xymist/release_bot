@@ -28,7 +28,8 @@ pub fn print_bugs(issues: IssueList) -> Result<()> {
             vec![String::from("No Associated Customer")]
         };
         for client in clients {
-            let client_bugs = client_list.entry(client).or_insert(vec![]);
+            let blank = vec![];
+            let client_bugs = client_list.entry(client).or_insert(blank);
             client_bugs.push(bug.clone())
         }
     }
