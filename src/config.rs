@@ -47,7 +47,7 @@ pub struct Project {
 #[derive(Clone)]
 pub struct Config {
     // List of the repositories we need to evaluate
-    pub repos: Option<Vec<Repo>>,
+    pub repos: Vec<Repo>,
     // API token for GitHub
     pub github_token: String,
     // Name of the organisation in Zoho
@@ -59,27 +59,29 @@ pub struct Config {
 }
 
 impl Config {
-    fn construct(mut self) -> Result<Config> {
-        let mut rl = vec![];
-        for mut repo in repo_list() {
-            repo.construct(&self)?;
-            rl.push(repo);
+    fn construct(&mut self) -> Result<()> {
+        let mut temp = ::std::mem::replace(&mut self.repos, Vec::new());
+        for repo in &mut temp {
+            repo.construct(self)?;
         }
-        self.repos = Some(rl);
-        Ok(self)
+        self.repos = temp;
+        Ok(())
     }
 }
 
 impl Default for Config {
     fn default() -> Config {
-        let config = Config {
-            repos: None,
+        let mut config = Config {
+            repos: repo_list(),
             github_token: env::var("GITHUB_TOKEN").ok().unwrap(),
             zoho_organisation: String::from("marketdojo"),
             zoho_authtoken: env::var("ZOHO_AUTHTOKEN").ok().unwrap(),
             zoho_projects: project_list(),
         };
 
-        config.construct().unwrap()
+        match config.construct() {
+            Ok(()) => config,
+            Err(e) => panic!("Couldn't construct configuration: {:?}", e),
+        }
     }
 }

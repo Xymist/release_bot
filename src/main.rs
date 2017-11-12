@@ -73,7 +73,7 @@ fn print_repos(repos: Vec<Repo>) -> Result<()> {
 
 fn run() -> Result<i32> {
     let config = Config::default();
-    let repos = config.repos.clone().unwrap();
+    let repos = config.repos.clone();
     let projects = config.zoho_projects.clone();
     let labels = labels(&repos);
 
