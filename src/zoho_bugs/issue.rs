@@ -24,6 +24,15 @@ pub struct Issue {
     pub title: Option<String>,
     pub milestone: Option<IssueMilestone>,
     pub customfields: Option<Vec<CustomField>>,
+    pub status: Option<Status>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct Status {
+    color_code: Option<String>,
+    id: Option<String>,
+    #[serde(rename = "type")]
+    pub type_name: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
