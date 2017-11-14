@@ -12,12 +12,26 @@ given issue that it has been dealt with.
 
 Plan:
 
-- Get initial list of repositories from a config file rather than hard coding
-- Add ability to get issues from Zoho bugtracker and parse into something useful
-- Add ability to connect Zoho issues to PRs by the ticket reference (From the look of the Zoho API this will be a sod. TODO: decide whether I need to keep information about known bugs in SQLite or something)
-- Add ability to collect customer issues from Zoho and group/print with customer as heading
-- Collate all data and autogenerate full release notes
 - Create Release in GitHub with the name of the current Milestone in Zoho
 - Trigger deploy process
 - Email Admins to request smoke test on success, or to complain on failure
 - Email support & clients to update on status of requested features/enhancements and bugfixes
+
+Setup:
+
+You will need a config.toml at the root of this repo:
+
+```
+github_token="GITHUB OAUTH TOKEN"
+zoho_organisation="ZOHO ORGANISATION NAME"
+zoho_authtoken="ZOHO API KEY"
+
+[[repos]]
+name="GITHUB REPO, E.G. ABC/XYZ"
+base="BASE DEVELOPMENT BRANCH"
+
+[[zoho_projects]]
+name="ZOHO PROJECT NAME"
+id="ZOHO PROJECT ID"
+milestone="CURRENT ZOHO RELEASE MILESTONE"
+```
