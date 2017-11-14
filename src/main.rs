@@ -13,6 +13,7 @@ extern crate regex;
 #[macro_use]
 extern crate lazy_static;
 extern crate inflector;
+extern crate toml;
 
 mod errors;
 mod pull_list;

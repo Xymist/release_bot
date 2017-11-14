@@ -1,50 +1,41 @@
 use pull_list::repo::Repo;
-use std::env;
+use std::fs::File;
+use std::path::Path;
+use std::io::prelude::*;
+use toml;
 use errors::*;
 
-// TODO: This should be in a TOML config file (i.e. [[repo]]) parsed in Main.
-// Hardcoding for now so I don't have to bother with a TOML parser upfront.
+fn parse_config(path: &str) -> Config {
+    let mut config_toml = String::new();
+    let parsed_path = Path::new(path).canonicalize().unwrap();
 
-fn repo_list() -> Vec<Repo> {
-    return vec![
-        Repo {
-            name: String::from("niciliketo/auction-frontend"),
-            base: String::from("master"),
-            last_release: None,
-            pulls: None,
+    let mut file = match File::open(parsed_path) {
+        Ok(file) => file,
+        Err(e) => panic!("Could not find config file! [{:?}]", e),
+    };
+
+    file.read_to_string(&mut config_toml).unwrap_or_else(
+        |err| {
+            panic!("Error while reading config: [{}]", err)
         },
-        Repo {
-            name: String::from("niciliketo/auction"),
-            base: String::from("development"),
-            last_release: None,
-            pulls: None,
-        },
-    ];
+    );
+
+    let config: Config = match toml::from_str(&config_toml) {
+        Ok(t) => t,
+        Err(e) => panic!("Error while deserializing config [{:?}]", e),
+    };
+
+    config
 }
 
-fn project_list() -> Vec<Project> {
-    return vec![
-        Project {
-            name: String::from("Market Dojo"),
-            id: String::from("328792000000016009"),
-            milestone: String::from("11.2.6"),
-        },
-        Project {
-            name: String::from("Quick Quotes"),
-            id: String::from("328792000012869177"),
-            milestone: String::from("Phase 1 (Beta release)"),
-        },
-    ];
-}
-
-#[derive(Clone)]
+#[derive(Deserialize, Clone)]
 pub struct Project {
     pub name: String,
     pub id: String,
     pub milestone: String,
 }
 
-#[derive(Clone)]
+#[derive(Deserialize, Clone)]
 pub struct Config {
     // List of the repositories we need to evaluate
     pub repos: Vec<Repo>,
@@ -71,13 +62,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Config {
-        let mut config = Config {
-            repos: repo_list(),
-            github_token: env::var("GITHUB_TOKEN").ok().unwrap(),
-            zoho_organisation: String::from("marketdojo"),
-            zoho_authtoken: env::var("ZOHO_AUTHTOKEN").ok().unwrap(),
-            zoho_projects: project_list(),
-        };
+        let mut config = parse_config("./config.toml");
 
         match config.construct() {
             Ok(()) => config,

@@ -8,7 +8,7 @@ use Config;
 use hyper::header::Authorization;
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Repo {
     pub name: String,
     pub base: String,
