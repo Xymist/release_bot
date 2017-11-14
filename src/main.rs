@@ -28,7 +28,7 @@ use config::{Config, Project};
 fn labels(repos: &[Repo]) -> Vec<String> {
     let mut labels = vec![];
     for repo in repos {
-        let mut lst = issue_labels(repo).unwrap();
+        let mut lst = issue_labels(repo).unwrap_or_default();
         labels.append(&mut lst);
     }
     labels.sort();
