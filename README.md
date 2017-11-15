@@ -21,7 +21,7 @@ Setup:
 
 You will need a config.toml at the root of this repo:
 
-```
+```TOML
 github_token="GITHUB OAUTH TOKEN"
 zoho_organisation="ZOHO ORGANISATION NAME"
 zoho_authtoken="ZOHO API KEY"

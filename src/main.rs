@@ -44,6 +44,7 @@ fn print_preamble(config: &Config) -> Result<()> {
         .map(|p| p.milestone.to_owned())
         .collect();
     let milestones = milestone_list.join(", ");
+    println!("Hi everyone,\n");
     println!(
         "We have released a new version of Market Dojo to live.\n\n\
         Please let your customers know if they are listed and you feel \
