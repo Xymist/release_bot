@@ -1,5 +1,6 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
+#![feature(type_ascription)]
 
 #[macro_use]
 extern crate error_chain;
@@ -44,12 +45,12 @@ fn print_preamble(config: &Config) -> Result<()> {
         .map(|p| p.milestone.to_owned())
         .collect();
     let milestones = milestone_list.join(", ");
-    println!("Hi everyone,\n");
     println!(
-        "We have released a new version of Market Dojo to live.\n\n\
+        "Hi everyone,\n\n\
+        We have released a new version of Market Dojo to live.\n\n\
         Please let your customers know if they are listed and you feel \
         the fixes will be relevant to them.\n\nThis includes development \
-        of the {} milestones. A complete list of changes is attached.\n\n\
+        of the {} milestone(s). A complete list of changes is attached.\n\n\
         Many thanks to the whole team who have worked incredibly hard \
         to make this release possible.\n",
         milestones
@@ -59,7 +60,8 @@ fn print_preamble(config: &Config) -> Result<()> {
 
 fn print_projects(labels: &[String], projects: Vec<Project>, config: &Config) -> Result<()> {
     for project in projects {
-        println!("\n### Closed issues for {}, by customer:\n", project.name);
+        println!("\n## Closed issues for {}\n", project.name);
+        println!("\n### Customer Issues:\n");
         let issues = issue::build_list(&project.id, project.milestone, labels.to_owned(), config)?;
         print_bugs(issues)?;
     }

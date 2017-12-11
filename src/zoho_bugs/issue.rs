@@ -25,6 +25,14 @@ pub struct Issue {
     pub milestone: Option<IssueMilestone>,
     pub customfields: Option<Vec<CustomField>>,
     pub status: Option<Status>,
+    pub classification: Option<Classification>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct Classification {
+    id: Option<u64>,
+    #[serde(rename = "type")]
+    pub type_name: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -136,5 +144,17 @@ impl Issue {
         }
         let cfs = self.customfields.as_ref().unwrap();
         cfs.iter().any(|cf| cf.label_name == "From a client:")
+    }
+
+    pub fn is_feature(&self) -> bool {
+        if self.classification.is_none() {
+            return false;
+        }
+        self.issue_type() == "Feature(New)"
+    }
+
+    pub fn issue_type(&self) -> String {
+        let class = self.classification.as_ref().unwrap();
+        class.clone().type_name.unwrap()
     }
 }
