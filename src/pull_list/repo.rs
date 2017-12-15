@@ -20,7 +20,7 @@ impl fmt::Display for Repo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "\n## Closed Pull Requests for {}\n\n###Last Release: {}\n",
+            "\n## Closed Pull Requests for {}\n\n### Last Release: {}\n",
             self.name,
             self.last_release.as_ref().unwrap()
         )
