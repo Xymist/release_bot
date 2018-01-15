@@ -1,5 +1,5 @@
 use std::fmt;
-use chrono::{Utc, TimeZone, DateTime, offset};
+use chrono::{offset, DateTime, TimeZone, Utc};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Release {

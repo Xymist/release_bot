@@ -1,4 +1,4 @@
-use chrono::{DateTime, offset};
+use chrono::{offset, DateTime};
 use std::fmt;
 use pull_list::github_user::GithubUser;
 use regex::Regex;

@@ -1,19 +1,19 @@
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
+#![cfg_attr(feature = "clippy", feature(plugin))]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
 #![feature(type_ascription)]
 
+extern crate chrono;
 #[macro_use]
 extern crate error_chain;
+extern crate hyper;
+extern crate inflector;
+#[macro_use]
+extern crate lazy_static;
+extern crate regex;
+extern crate reqwest;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate reqwest;
-extern crate chrono;
-extern crate hyper;
-extern crate regex;
-#[macro_use]
-extern crate lazy_static;
-extern crate inflector;
 extern crate toml;
 
 mod errors;
@@ -22,9 +22,9 @@ mod zoho_bugs;
 mod config;
 
 use errors::*;
-use pull_list::{print_repo, issue_labels};
+use pull_list::{issue_labels, print_repo};
 use pull_list::repo::Repo;
-use zoho_bugs::{print_bugs, issue};
+use zoho_bugs::{issue, print_bugs};
 use config::{Config, Project};
 
 fn labels(repos: &[Repo]) -> Vec<String> {
@@ -47,12 +47,12 @@ fn print_preamble(config: &Config) -> Result<()> {
     let milestones = milestone_list.join(", ");
     println!(
         "Hi everyone,\n\n\
-        We have released a new version of Market Dojo to live.\n\n\
-        Please let your customers know if they are listed and you feel \
-        the fixes will be relevant to them.\n\nThis includes development \
-        of the {} milestone(s). A complete list of changes is attached.\n\n\
-        Many thanks to the whole team who have worked incredibly hard \
-        to make this release possible.\n",
+         We have released a new version of Market Dojo to live.\n\n\
+         Please let your customers know if they are listed and you feel \
+         the fixes will be relevant to them.\n\nThis includes development \
+         of the {} milestone(s). A complete list of changes is attached.\n\n\
+         Many thanks to the whole team who have worked incredibly hard \
+         to make this release possible.\n",
         milestones
     );
     Ok(())

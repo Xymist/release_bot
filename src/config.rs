@@ -14,11 +14,8 @@ fn parse_config(path: &str) -> Config {
         Err(e) => panic!("Could not find config file! [{:?}]", e),
     };
 
-    file.read_to_string(&mut config_toml).unwrap_or_else(
-        |err| {
-            panic!("Error while reading config: [{}]", err)
-        },
-    );
+    file.read_to_string(&mut config_toml)
+        .unwrap_or_else(|err| panic!("Error while reading config: [{}]", err));
 
     let config: Config = match toml::from_str(&config_toml) {
         Ok(t) => t,

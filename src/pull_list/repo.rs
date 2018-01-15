@@ -65,8 +65,7 @@ impl Repo {
 
         let url = format!(
             "https://api.github.com/repos/{}/pulls?state=closed&base={}",
-            self.name,
-            self.base
+            self.name, self.base
         );
 
         let mut pull_iter = PRIterator::for_addr(&url, pred, config)?

@@ -99,13 +99,10 @@ pub fn build_list(
 ) -> Result<IssueList> {
     let client = reqwest::Client::new();
     let zoho_authtoken = &config.zoho_authtoken;
-    let milestone_url =
-        format!(
-            "https://projectsapi.zoho.com/restapi/portal/{}/projects/{}/milestones/?authtoken={}",
-            &config.zoho_organisation,
-            project_id,
-            zoho_authtoken,
-        );
+    let milestone_url = format!(
+        "https://projectsapi.zoho.com/restapi/portal/{}/projects/{}/milestones/?authtoken={}",
+        &config.zoho_organisation, project_id, zoho_authtoken,
+    );
     let mut milestone_req = client.get(&milestone_url);
     let mut milestone_response = milestone_req.send()?;
     if !milestone_response.status().is_success() {

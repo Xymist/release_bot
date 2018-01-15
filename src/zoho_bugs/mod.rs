@@ -2,7 +2,7 @@ pub mod issue;
 mod winnower;
 
 use std::collections::HashMap;
-use self::issue::{Issue, IssueList, CustomField};
+use self::issue::{CustomField, Issue, IssueList};
 use self::winnower::Winnower;
 use inflector::Inflector;
 use errors::*;
@@ -26,7 +26,8 @@ pub fn print_bugs(issues: IssueList) -> Result<()> {
                 .map(|cf| cf.value)
                 .collect();
             let mut cls: Vec<String> = Vec::new();
-            vec_cfs.into_iter()
+            vec_cfs
+                .into_iter()
                 .map(|vc| cls.extend(vc.split(',').map(String::from).collect(): Vec<String>))
                 .count();
             cls.into_iter().map(|st| st.to_title_case()).collect()
@@ -56,7 +57,7 @@ pub fn print_bugs(issues: IssueList) -> Result<()> {
 
     let others = match client_list.remove("All Other Changes") {
         Some(os) => os,
-        None => Vec::new()
+        None => Vec::new(),
     };
 
     let mut sortable: Vec<(&String, &Vec<Issue>)> = client_list.iter().collect();
