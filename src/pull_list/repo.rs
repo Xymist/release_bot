@@ -1,11 +1,11 @@
-use reqwest;
+use Config;
 use errors::*;
-use pull_list::release::Release;
+use hyper::header::Authorization;
+use pull_list::pr_iterator::PRIterator;
 use pull_list::predicate::Predicate;
 use pull_list::pull::Pull;
-use pull_list::pr_iterator::PRIterator;
-use Config;
-use hyper::header::Authorization;
+use pull_list::release::Release;
+use reqwest;
 use std::fmt;
 
 #[derive(Deserialize, Debug, Clone)]

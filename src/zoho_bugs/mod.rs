@@ -1,26 +1,26 @@
 pub mod issue;
 mod winnower;
 
-use std::collections::HashMap;
-use self::issue::{CustomField, Issue, IssueList};
+use self::issue::{Issue, IssueList, MDCustomFilters};
 use self::winnower::Winnower;
-use inflector::Inflector;
 use errors::*;
+use inflector::Inflector;
+use std::collections::HashMap;
+use zohohorrorshow::models::bug::Customfield;
 
 pub fn print_bugs(issues: IssueList) -> Result<()> {
-    let win = Winnower::from_milestone(
-        issues.milestone.unwrap().clone(),
-        issues.issue_labels.unwrap().clone(),
-    )?;
-    let bugs = issues.bugs.unwrap();
+    let win = Winnower::from_milestone(issues.issue_labels.unwrap().clone())?;
+    let bugs = issues.bugs;
     let buglist: Vec<Issue> = bugs.into_iter().filter(|bug| win.test(bug)).collect();
     let mut client_list: HashMap<String, Vec<Issue>> = HashMap::new();
     for bug in buglist {
         // If the Issue is associated with a client, add it to this list, regardless
         // of whether it is a feature. Client bugs have duplicates so that sales
         // can just look for their client's name.
-        let clients: Vec<String> = if bug.has_client() {
-            let cfs: Vec<CustomField> = bug.customfields.clone().unwrap();
+        let clients: Vec<String> = if bug.0.has_client() {
+            // .unwrap() is safe here; has_client() has already verified that
+            // this is not None.
+            let cfs: Vec<Customfield> = bug.0.customfields.clone().unwrap();
             let mut vec_cfs: Vec<String> = cfs.into_iter()
                 .filter(|cf| cf.label_name == "From a client:")
                 .map(|cf| cf.value)
@@ -34,7 +34,7 @@ pub fn print_bugs(issues: IssueList) -> Result<()> {
         // Non-client Issues may be new features we're adding to the app; these
         // are of interest to everyone. Features requested by clients will be in
         // the previous set, and not duplicated here.
-        } else if bug.is_feature() {
+        } else if bug.0.is_feature() {
             vec![String::from("New Features")]
         // All other work done is listed last. These Issues are not associated
         // with a client, nor are they new features, but they are still valuable.

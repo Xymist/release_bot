@@ -1,9 +1,9 @@
-use reqwest;
+use Config;
 use errors::*;
 use hyper::header::{Authorization, Link, RelationType};
 use pull_list::predicate::Predicate;
 use pull_list::pull::Pull;
-use Config;
+use reqwest;
 
 pub struct PRIterator {
     pub items: <Vec<Pull> as IntoIterator>::IntoIter,

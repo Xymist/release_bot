@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "clippy", feature(plugin))]
-#![cfg_attr(feature = "clippy", plugin(clippy))]
 #![feature(type_ascription)]
 
 extern crate chrono;
@@ -15,17 +13,18 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate toml;
+extern crate zohohorrorshow;
 
+mod config;
 mod errors;
 mod pull_list;
 mod zoho_bugs;
-mod config;
 
-use errors::*;
-use pull_list::{issue_labels, print_repo};
-use pull_list::repo::Repo;
-use zoho_bugs::{issue, print_bugs};
 use config::{Config, Project};
+use errors::*;
+use pull_list::repo::Repo;
+use pull_list::{issue_labels, print_repo};
+use zoho_bugs::{issue, print_bugs};
 
 fn labels(repos: &[Repo]) -> Vec<String> {
     let mut labels = vec![];
@@ -42,7 +41,7 @@ fn print_preamble(config: &Config) -> Result<()> {
     let milestone_list: Vec<String> = config
         .zoho_projects
         .iter()
-        .map(|p| p.milestone.to_owned())
+        .map(|p| p.milestones.join(", "))
         .collect();
     let milestones = milestone_list.join(", ");
     println!(
@@ -62,7 +61,12 @@ fn print_projects(labels: &[String], projects: Vec<Project>, config: &Config) ->
     for project in projects {
         println!("\n## Closed issues for {}\n", project.name);
         println!("\n### Customer Issues:\n");
-        let issues = issue::build_list(&project.id, project.milestone, labels.to_owned(), config)?;
+        let issues = issue::build_list(
+            project.id.parse::<i64>()?,
+            project.milestones,
+            labels.to_owned(),
+            config,
+        )?;
         print_bugs(issues)?;
     }
     Ok(())

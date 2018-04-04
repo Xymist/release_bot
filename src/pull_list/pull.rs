@@ -1,7 +1,7 @@
 use chrono::{offset, DateTime};
-use std::fmt;
 use pull_list::github_user::GithubUser;
 use regex::Regex;
+use std::fmt;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Pull {

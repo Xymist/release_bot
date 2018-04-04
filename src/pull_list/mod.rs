@@ -1,15 +1,15 @@
+mod github_user;
 mod pr_iterator;
 mod predicate;
+mod pull;
 mod release;
 pub mod repo;
-mod pull;
-mod github_user;
 
-use errors::*;
-use self::repo::Repo;
 use self::pull::Pull;
-use std::collections::HashMap;
+use self::repo::Repo;
+use errors::*;
 use inflector::Inflector;
+use std::collections::HashMap;
 
 // TODO: This should take a parameter repo list so that Main can use it
 // properly.

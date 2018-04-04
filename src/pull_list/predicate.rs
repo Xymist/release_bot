@@ -1,7 +1,7 @@
-use errors::*;
-use pull_list::release::Release;
-use pull_list::pull::Pull;
 use chrono::NaiveDate;
+use errors::*;
+use pull_list::pull::Pull;
+use pull_list::release::Release;
 
 pub struct Predicate {
     since: Option<NaiveDate>,

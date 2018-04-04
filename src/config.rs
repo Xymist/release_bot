@@ -1,9 +1,9 @@
+use errors::*;
 use pull_list::repo::Repo;
 use std::fs::File;
-use std::path::Path;
 use std::io::prelude::*;
+use std::path::Path;
 use toml;
-use errors::*;
 
 fn parse_config(path: &str) -> Config {
     let mut config_toml = String::new();
@@ -29,7 +29,7 @@ fn parse_config(path: &str) -> Config {
 pub struct Project {
     pub name: String,
     pub id: String,
-    pub milestone: String,
+    pub milestones: Vec<String>,
 }
 
 #[derive(Deserialize, Clone)]
