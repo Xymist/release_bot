@@ -1,4 +1,5 @@
 pub mod issue;
+pub mod task;
 
 use self::issue::{Issue, IssueList, MDCustomFilters};
 use errors::*;
