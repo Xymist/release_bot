@@ -26,6 +26,12 @@ use pull_list::repo::Repo;
 use pull_list::{issue_labels, print_repo};
 use zoho_bugs::{issue, print_bugs};
 
+const PREAMBLE: &'static str = "Hi everyone,\n
+We have released a new version of Market Dojo to live.\n
+Please let your customers know if they are listed and you feel the fixes will be relevant to them.
+A complete list of changes is attached.\n
+Many thanks to the whole team who have worked incredibly hard to make this release possible.\n";
+
 fn labels(repos: &[Repo]) -> Vec<String> {
     let mut labels = vec![];
     for repo in repos {
@@ -44,14 +50,9 @@ fn print_preamble(config: &Config) -> Result<()> {
         .map(|p| p.milestones.join(", "))
         .collect();
     let milestones = milestone_list.join(", ");
+    println!("{}", PREAMBLE);
     println!(
-        "Hi everyone,\n\n\
-         We have released a new version of Market Dojo to live.\n\n\
-         Please let your customers know if they are listed and you feel \
-         the fixes will be relevant to them.\n\nThis includes development \
-         of the {} milestone(s). A complete list of changes is attached.\n\n\
-         Many thanks to the whole team who have worked incredibly hard \
-         to make this release possible.\n",
+        "\nThis includes development of the {} milestone(s).\n\n",
         milestones
     );
     Ok(())
