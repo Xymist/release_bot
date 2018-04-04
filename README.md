@@ -29,9 +29,10 @@ zoho_authtoken="ZOHO API KEY"
 [[repos]]
 name="GITHUB REPO, E.G. ABC/XYZ"
 base="BASE DEVELOPMENT BRANCH"
+feature="RELEASE FEATURE BRANCH (e.g. 'development_12.34.5)"
 
 [[zoho_projects]]
 name="ZOHO PROJECT NAME"
 id="ZOHO PROJECT ID"
-milestone="CURRENT ZOHO RELEASE MILESTONE"
+milestones=["CURRENT ZOHO RELEASE MILESTONE","ANY OTHER MILESTONES"...]
 ```
