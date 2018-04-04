@@ -19,6 +19,7 @@ toml = "0.4"
 
 [dependencies.zohohorrorshow]
 git = "https://github.com/Xymist/zohohorrorshow.git"
+tag = "v0.5.3"
 
 [dependencies.chrono]
 features = ["serde"]
