@@ -10,11 +10,11 @@ pub struct PRIterator {
     pub next_link: Option<String>,
     pub client: reqwest::Client,
     pub github_token: String,
-    pub predicate: Predicate,
+    pub predicate: Option<Predicate>,
 }
 
 impl PRIterator {
-    pub fn for_addr(url: &str, pred: Predicate, config: &Config) -> Result<Self> {
+    pub fn for_addr(url: &str, pred: Option<Predicate>, config: &Config) -> Result<Self> {
         Ok(PRIterator {
             items: Vec::new().into_iter(),
             next_link: Some(url.to_owned()),
@@ -42,12 +42,13 @@ impl PRIterator {
         if !response.status().is_success() {
             bail!("Server error: {:?}", response.status());
         }
-        let items: Vec<Pull> = response
-            .json::<Vec<Pull>>()?
-            .into_iter()
-            .filter(|pull| self.predicate.test(pull))
-            .collect();
-        self.items = items.into_iter();
+
+        let item_iter = response.json::<Vec<Pull>>()?.into_iter();
+        self.items = if let Some(ref pred) = self.predicate {
+            item_iter.filter(|pull| pred.test(pull)).collect::<Vec<Pull>>().into_iter()
+        } else {
+            item_iter
+        };
 
         // We only bother getting the next set if the one we just processed
         // appears not to be the end of the collection.

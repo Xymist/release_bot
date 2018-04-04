@@ -8,7 +8,6 @@ const CLOSED_STATUSES: &[&str] = &["Tested on Staging", "Tested on Live", "Close
 #[derive(Deserialize, Debug, Clone)]
 pub struct IssueList {
     pub milestones: Option<Vec<String>>,
-    pub issue_labels: Option<Vec<String>>,
     pub bugs: Vec<Issue>,
 }
 
@@ -27,12 +26,7 @@ impl fmt::Display for Issue {
     }
 }
 
-pub fn build_list(
-    project_id: i64,
-    milestones: Vec<String>,
-    issue_labels: Vec<String>,
-    config: &Config,
-) -> Result<IssueList> {
+pub fn build_list(project_id: i64, milestones: Vec<String>, config: &Config) -> Result<IssueList> {
     let mut client = ZohoClient::new(
         &config.zoho_authtoken,
         Some(&config.zoho_organisation),
@@ -63,7 +57,6 @@ pub fn build_list(
 
     Ok(IssueList {
         milestones: Some(milestones),
-        issue_labels: Some(issue_labels),
         bugs: bugs.into_iter().map(|b| Issue(b)).collect::<Vec<Issue>>(),
     })
 }

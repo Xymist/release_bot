@@ -48,19 +48,3 @@ pub fn print_repo(repo: Repo) -> Result<()> {
 
     Ok(())
 }
-
-pub fn issue_labels(repo: &Repo) -> Option<Vec<String>> {
-    if repo.pulls.is_none() {
-        return None;
-    }
-    let mut labels = Vec::new();
-    for pull in repo.pulls.as_ref().unwrap() {
-        if pull.bug_tickets.is_none() {
-            continue;
-        }
-        for tk in pull.bug_tickets.as_ref().unwrap() {
-            labels.push(tk.to_owned());
-        }
-    }
-    Some(labels)
-}

@@ -12,6 +12,7 @@ use std::fmt;
 pub struct Repo {
     pub name: String,
     pub base: String,
+    pub feature: String,
     pub last_release: Option<Release>,
     pub pulls: Option<Vec<Pull>>,
 }
@@ -63,20 +64,31 @@ impl Repo {
 
         let pred = Predicate::from_release(self.last_release.as_ref().unwrap())?;
 
-        let url = format!(
+        let base_url = format!(
             "https://api.github.com/repos/{}/pulls?state=closed&base={}",
             self.name, self.base
         );
 
-        let mut pull_iter = PRIterator::for_addr(&url, pred, config)?
+        let feature_url = format!(
+            "https://api.github.com/repos/{}/pulls?state=closed&base={}",
+            self.name, self.feature,
+        );
+
+        let mut base_pull_iter = PRIterator::for_addr(&base_url, Some(pred), config)?
             .filter_map(Result::ok)
             .peekable();
 
-        if pull_iter.peek().is_none() {
+        let mut feature_pull_iter = PRIterator::for_addr(&feature_url, None, config)?
+            .filter_map(Result::ok)
+            .peekable();
+
+        if base_pull_iter.peek().is_none() && feature_pull_iter.peek().is_none() {
             return Ok(());
         }
 
-        let pulls: Vec<Pull> = pull_iter.map(|pull| pull.add_tickets()).collect();
+        let mut pulls: Vec<Pull> = base_pull_iter.collect();
+        let mut feature_pulls: Vec<Pull> = feature_pull_iter.collect();
+        pulls.append(&mut feature_pulls);
 
         self.pulls = Some(pulls);
 
