@@ -45,7 +45,10 @@ impl PRIterator {
 
         let item_iter = response.json::<Vec<Pull>>()?.into_iter();
         self.items = if let Some(ref pred) = self.predicate {
-            item_iter.filter(|pull| pred.test(pull)).collect::<Vec<Pull>>().into_iter()
+            item_iter
+                .filter(|pull| pred.test(pull))
+                .collect::<Vec<Pull>>()
+                .into_iter()
         } else {
             item_iter
         };

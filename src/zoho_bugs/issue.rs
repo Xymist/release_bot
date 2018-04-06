@@ -1,4 +1,3 @@
-use Config;
 use errors::*;
 use std::{fmt, rc::Rc};
 use zohohorrorshow::{client::ZohoClient, models::{bug, milestone}};
@@ -7,7 +6,6 @@ const CLOSED_STATUSES: &[&str] = &["Tested on Staging", "Tested on Live", "Close
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct IssueList {
-    pub milestones: Option<Vec<String>>,
     pub bugs: Vec<Issue>,
 }
 
@@ -26,22 +24,13 @@ impl fmt::Display for Issue {
     }
 }
 
-pub fn build_list(project_id: i64, milestones: Vec<String>, config: &Config) -> Result<IssueList> {
-    let mut client = ZohoClient::new(
-        &config.zoho_authtoken,
-        Some(&config.zoho_organisation),
-        None,
-    ).chain_err(|| "Could not initialize; exiting")?;
-
-    if let Some(cl) = Rc::get_mut(&mut client) {
-        cl.project(project_id);
-    };
+pub fn build_list(client: Rc<ZohoClient>, milestones: Vec<String>) -> Result<IssueList> {
     let mut ms_records = milestones
-        .clone()
         .into_iter()
         .map(|m| milestone::milestones(&client).by_name(&m).fetch().unwrap())
         .collect::<Vec<Option<milestone::Milestone>>>();
     ms_records.retain(|om| if let &Some(ref _m) = om { true } else { false });
+
     let ms_ids: Vec<String> = ms_records
         .into_iter()
         .map(|m| m.unwrap().id.to_string())
@@ -54,10 +43,10 @@ pub fn build_list(project_id: i64, milestones: Vec<String>, config: &Config) -> 
         .as_slice());
 
     let bugs = bugs_path.fetch()?;
+    let buglist: Vec<Issue> = bugs.into_iter().filter(|bug| bug.is_closed()).map(|b| Issue(b)).collect();
 
     Ok(IssueList {
-        milestones: Some(milestones),
-        bugs: bugs.into_iter().map(|b| Issue(b)).collect::<Vec<Issue>>(),
+        bugs: buglist,
     })
 }
 
