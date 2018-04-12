@@ -88,6 +88,18 @@ pub fn merge_actions(
     task_list
 }
 
+#[test]
+fn test_merge_actions() {
+    let mut list1 = HashMap::new();
+    list1.insert("First".to_owned(), vec!["a".to_owned()]);
+    let mut list2 = HashMap::new();
+    list2.insert("Second".to_owned(), vec!["a".to_owned()]);
+    list2.insert("First".to_owned(), vec!["b".to_owned()]);
+    let merged: ClassifiedActions = merge_actions(list1, list2);
+    assert_eq!(merged.get("First"), Some(&vec!["b".to_owned(), "a".to_owned()]));
+    assert_eq!(merged.get("Second"), Some(&vec!["a".to_owned()]));
+}
+
 pub fn print_actions(mut client_list: ClassifiedActions) -> Result<()> {
     let features = match client_list.remove("New Features") {
         Some(fs) => fs,
