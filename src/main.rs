@@ -22,7 +22,8 @@ use config::{Config, Project};
 use errors::*;
 use pull_list::{print_repo, repo::Repo};
 use std::rc::Rc;
-use zoho_bugs::{classify_bugs, issue, print_bugs, print_tasks, task, zh_client};
+use zoho_bugs::{classify_bugs, classify_tasks, issue, merge_actions, print_actions, task,
+                zh_client};
 
 const PREAMBLE: &'static str = "Hi everyone,\n
 We have released a new version of Market Dojo to live.\n
@@ -52,8 +53,7 @@ fn print_projects(projects: Vec<Project>, config: &Config) -> Result<()> {
         let client = zh_client(project.id.parse::<i64>()?, config)?;
         let issues = issue::build_list(Rc::clone(&client), project.milestones.clone())?;
         let tasks = task::build_list(Rc::clone(&client), project.milestones)?;
-        print_bugs(classify_bugs(issues))?;
-        print_tasks(classify_tasks(tasks))?;
+        print_actions(merge_actions(classify_bugs(issues), classify_tasks(tasks)))?;
     }
     Ok(())
 }

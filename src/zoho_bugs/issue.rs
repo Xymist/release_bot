@@ -16,6 +16,14 @@ impl Issue {
     pub fn is_closed(&self) -> bool {
         self.0.is_closed()
     }
+
+    pub fn has_client(&self) -> bool {
+        self.0.has_client()
+    }
+
+    pub fn is_feature(&self) -> bool {
+        self.0.is_feature()
+    }
 }
 
 impl fmt::Display for Issue {
@@ -43,11 +51,12 @@ pub fn build_list(client: Rc<ZohoClient>, milestones: Vec<String>) -> Result<Iss
         .as_slice());
 
     let bugs = bugs_path.fetch()?;
-    let buglist: Vec<Issue> = bugs.into_iter().filter(|bug| bug.is_closed()).map(|b| Issue(b)).collect();
+    let buglist: Vec<Issue> = bugs.into_iter()
+        .filter(|bug| bug.is_closed())
+        .map(|b| Issue(b))
+        .collect();
 
-    Ok(IssueList {
-        bugs: buglist,
-    })
+    Ok(IssueList { bugs: buglist })
 }
 
 pub trait MDCustomFilters {

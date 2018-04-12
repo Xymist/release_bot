@@ -18,6 +18,16 @@ impl fmt::Display for Task {
     }
 }
 
+impl Task {
+    pub fn is_closed(&self) -> bool {
+        self.0.is_closed()
+    }
+
+    pub fn has_client(&self) -> bool {
+        self.0.has_client()
+    }
+}
+
 pub fn build_list(client: Rc<ZohoClient>, milestones: Vec<String>) -> Result<TaskList> {
     let mut ms_records = milestones
         .into_iter()
@@ -52,6 +62,7 @@ pub fn build_list(client: Rc<ZohoClient>, milestones: Vec<String>) -> Result<Tas
 
 pub trait MDCustomFilters {
     fn is_closed(&self) -> bool;
+    fn has_client(&self) -> bool;
 }
 
 impl MDCustomFilters for task::Task {
@@ -59,5 +70,13 @@ impl MDCustomFilters for task::Task {
         CLOSED_STATUSES
             .iter()
             .any(|x| *x == self.status.status_type)
+    }
+
+    fn has_client(&self) -> bool {
+        if self.custom_fields.is_none() {
+            return false;
+        }
+        let cfs = self.custom_fields.as_ref().unwrap();
+        cfs.iter().any(|cf| cf.label_name == "From a client:")
     }
 }
