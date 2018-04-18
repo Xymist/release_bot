@@ -24,7 +24,7 @@ use pull_list::print_repo;
 use pull_list::repo::Repo;
 use zoho_bugs::{classify_bugs, issue, print_bugs};
 
-const PREAMBLE: &'static str = "Hi everyone,\n
+const PREAMBLE: &str = "Hi everyone,\n
 We have released a new version of Market Dojo to live.\n
 Please let your customers know if they are listed and you feel the fixes will be relevant to them.
 A complete list of changes is attached.\n

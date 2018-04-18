@@ -16,7 +16,7 @@ pub struct Issue(pub bug::Bug);
 
 impl Issue {
     pub fn is_closed(&self) -> bool {
-        self.0.is_closed()
+        self.0.closed_tag()
     }
 }
 
@@ -41,7 +41,7 @@ pub fn build_list(project_id: i64, milestones: Vec<String>, config: &Config) -> 
         .into_iter()
         .map(|m| milestone::milestones(&client).by_name(&m).fetch().unwrap())
         .collect::<Vec<Option<milestone::Milestone>>>();
-    ms_records.retain(|om| if let &Some(ref _m) = om { true } else { false });
+    ms_records.retain(|om| if let Some(ref _m) = *om { true } else { false });
     let ms_ids: Vec<String> = ms_records
         .into_iter()
         .map(|m| m.unwrap().id.to_string())
@@ -57,7 +57,7 @@ pub fn build_list(project_id: i64, milestones: Vec<String>, config: &Config) -> 
 
     Ok(IssueList {
         milestones: Some(milestones),
-        bugs: bugs.into_iter().map(|b| Issue(b)).collect::<Vec<Issue>>(),
+        bugs: bugs.into_iter().map(Issue).collect::<Vec<Issue>>(),
     })
 }
 
@@ -65,7 +65,7 @@ pub trait MDCustomFilters {
     fn has_client(&self) -> bool;
     fn is_feature(&self) -> bool;
     fn issue_type(&self) -> &str;
-    fn is_closed(&self) -> bool;
+    fn closed_tag(&self) -> bool;
 }
 
 impl MDCustomFilters for bug::Bug {
@@ -85,7 +85,7 @@ impl MDCustomFilters for bug::Bug {
         &self.classification.classification_type
     }
 
-    fn is_closed(&self) -> bool {
+    fn closed_tag(&self) -> bool {
         CLOSED_STATUSES
             .iter()
             .any(|x| *x == self.status.classification_type)
