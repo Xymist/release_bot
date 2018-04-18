@@ -37,7 +37,7 @@ pub fn build_list(client: Rc<ZohoClient>, milestones: Vec<String>) -> Result<Tas
 
     let ms_ids: Vec<i64> = ms_records.into_iter().map(|m| m.unwrap().id).collect();
 
-    let mut tasklists = tasklist::tasklists(&client).fetch()?;
+    let mut tasklists = tasklist::tasklists(&client).flag("internal").fetch()?;
     tasklists.retain(|t| ms_ids.contains(&t.milestone.id));
     let tasks: Vec<task::Task> = tasklists
         .into_iter()
