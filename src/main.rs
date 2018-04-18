@@ -20,9 +20,9 @@ mod zoho_bugs;
 
 use config::{Config, Project};
 use errors::*;
-use pull_list::print_repo;
-use pull_list::repo::Repo;
-use zoho_bugs::{classify_bugs, issue, print_bugs};
+use pull_list::{print_repo, repo::Repo};
+use zoho_bugs::{classify_bugs, classify_tasks, issue, merge_actions, print_actions, task,
+                zh_client};
 
 const PREAMBLE: &str = "Hi everyone,\n
 We have released a new version of Market Dojo to live.\n
@@ -49,8 +49,10 @@ fn print_projects(projects: Vec<Project>, config: &Config) -> Result<()> {
     for project in projects {
         println!("\n## Closed issues for {}\n", project.name);
         println!("\n### Customer Issues:\n");
-        let issues = issue::build_list(project.id.parse::<i64>()?, project.milestones, config)?;
-        print_bugs(classify_bugs(issues))?;
+        let client = zh_client(project.id.parse::<i64>()?, config)?;
+        let issues = issue::build_list(&client, project.milestones.clone())?;
+        let tasks = task::build_list(&client, project.milestones)?;
+        print_actions(merge_actions(classify_bugs(issues), classify_tasks(tasks)))?;
     }
     Ok(())
 }
