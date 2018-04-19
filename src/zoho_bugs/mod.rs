@@ -96,7 +96,10 @@ fn test_merge_actions() {
     list2.insert("Second".to_owned(), vec!["a".to_owned()]);
     list2.insert("First".to_owned(), vec!["b".to_owned()]);
     let merged: ClassifiedActions = merge_actions(list1, list2);
-    assert_eq!(merged.get("First"), Some(&vec!["b".to_owned(), "a".to_owned()]));
+    assert_eq!(
+        merged.get("First"),
+        Some(&vec!["b".to_owned(), "a".to_owned()])
+    );
     assert_eq!(merged.get("Second"), Some(&vec!["a".to_owned()]));
 }
 

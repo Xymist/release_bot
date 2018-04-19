@@ -45,7 +45,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Is
         .map(|m| m.unwrap().id.to_string())
         .collect();
 
-    let bugs_path = bug::bugs(client).milestone(&ms_ids
+    let bugs_path = bug::bugs(client).milestone(ms_ids
         .iter()
         .map(|s| &**s)
         .collect::<Vec<&str>>()
