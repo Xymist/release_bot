@@ -1,6 +1,7 @@
 use errors::*;
 use std::{fmt, rc::Rc};
-use zohohorrorshow::{client::ZohoClient, models::{milestone, task, tasklist}};
+use zohohorrorshow::{client::ZohoClient,
+                     models::{milestone, task, tasklist}};
 
 const CLOSED_STATUSES: &[&str] = &["Tested on Staging", "Tested on Live", "Closed"];
 

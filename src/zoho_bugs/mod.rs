@@ -1,11 +1,12 @@
 pub mod issue;
 pub mod task;
 
-use self::{issue::{Issue, IssueList}, task::{Task, TaskList}};
-use Config;
+use self::{issue::{Issue, IssueList},
+           task::{Task, TaskList}};
 use errors::*;
 use std::{collections::HashMap, rc::Rc};
 use zohohorrorshow::client::ZohoClient;
+use Config;
 
 type ClassifiedActions = HashMap<String, Vec<String>>;
 

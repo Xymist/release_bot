@@ -1,6 +1,7 @@
 use errors::*;
 use std::{fmt, rc::Rc};
-use zohohorrorshow::{client::ZohoClient, models::{bug, milestone}};
+use zohohorrorshow::{client::ZohoClient,
+                     models::{bug, milestone}};
 
 const CLOSED_STATUSES: &[&str] = &["Tested on Staging", "Tested on Live", "Closed"];
 
@@ -45,11 +46,13 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Is
         .map(|m| m.unwrap().id.to_string())
         .collect();
 
-    let bugs_path = bug::bugs(client).milestone(ms_ids
-        .iter()
-        .map(|s| &**s)
-        .collect::<Vec<&str>>()
-        .as_slice());
+    let bugs_path = bug::bugs(client).milestone(
+        ms_ids
+            .iter()
+            .map(|s| &**s)
+            .collect::<Vec<&str>>()
+            .as_slice(),
+    );
 
     let bugs = bugs_path.fetch()?;
     let buglist: Vec<Issue> = bugs.into_iter()
