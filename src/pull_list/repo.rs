@@ -1,4 +1,3 @@
-use Config;
 use errors::*;
 use hyper::header::Authorization;
 use pull_list::pr_iterator::PRIterator;
@@ -7,6 +6,7 @@ use pull_list::pull::Pull;
 use pull_list::release::Release;
 use reqwest;
 use std::fmt;
+use Config;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Repo {
