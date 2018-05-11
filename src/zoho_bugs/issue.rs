@@ -34,8 +34,19 @@ impl fmt::Display for Issue {
 
 pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<IssueList> {
     let mut ms_records = milestones
+        .clone()
         .into_iter()
-        .map(|m| milestone::milestones(client).by_name(&m).fetch().unwrap())
+        .map(|m| {
+            milestone::milestones(client)
+                .status("notcompleted")
+                .display_type("all")
+                .fetch()
+                .unwrap()
+                .into_iter()
+                .filter(|ms| m == ms.name)
+                .collect::<Vec<milestone::Milestone>>()
+                .pop()
+        })
         .collect::<Vec<Option<milestone::Milestone>>>();
 
     ms_records.retain(|om| if let Some(ref _m) = *om { true } else { false });
@@ -52,6 +63,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Is
         .as_slice());
 
     let bugs = bugs_path.fetch()?;
+
     let buglist: Vec<Issue> = bugs.into_iter()
         .filter(|bug| bug.closed_tag())
         .map(Issue)
