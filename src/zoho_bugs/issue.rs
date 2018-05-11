@@ -35,7 +35,6 @@ impl fmt::Display for Issue {
 
 pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<IssueList> {
     let mut ms_records = milestones
-        .clone()
         .into_iter()
         .map(|m| {
             milestone::milestones(client)

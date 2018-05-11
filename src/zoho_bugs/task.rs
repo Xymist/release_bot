@@ -32,8 +32,19 @@ impl Task {
 pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<TaskList> {
     let mut ms_records = milestones
         .into_iter()
-        .map(|m| milestone::milestones(client).by_name(&m).fetch().unwrap())
+        .map(|m| {
+            milestone::milestones(client)
+                .status("notcompleted")
+                .display_type("all")
+                .fetch()
+                .unwrap()
+                .into_iter()
+                .filter(|ms| m == ms.name)
+                .collect::<Vec<milestone::Milestone>>()
+                .pop()
+        })
         .collect::<Vec<Option<milestone::Milestone>>>();
+
     ms_records.retain(|om| if let Some(ref _m) = *om { true } else { false });
 
     let ms_ids: Vec<i64> = ms_records.into_iter().map(|m| m.unwrap().id).collect();
