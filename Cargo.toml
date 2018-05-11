@@ -1,6 +1,6 @@
 [package]
 name = "release_bot"
-version = "0.5.3"
+version = "0.5.4"
 authors = ["Xymist <james@jamieduerden.me>"]
 readme = "README.md"
 
@@ -16,10 +16,7 @@ regex = "0.2"
 lazy_static = "0.2.9"
 Inflector = "0.11.0"
 toml = "0.4"
-
-[dependencies.zohohorrorshow]
-git = "https://github.com/Xymist/zohohorrorshow.git"
-tag = "v0.5.4"
+zohohorrorshow = "0.5.4"
 
 [dependencies.chrono]
 features = ["serde"]

@@ -3,7 +3,6 @@ os:
 - osx
 language: rust
 rust:
-- stable
 - nightly
 env: ZOHO_PORTAL_NAME=notarealportal ZOHO_PROJECT_NAME=notarealproject ZOHO_AUTHTOKEN=notarealtoken
 script:
