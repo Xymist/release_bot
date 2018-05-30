@@ -21,6 +21,7 @@ deploy:
   name: Release Bot $(git describe --tags)
   body: $(git show -s --format=%B HEAD)
   prerelease: true
+  skip_cleanup: true
   on:
     repo: Xymist/release_bot
     tags: true
