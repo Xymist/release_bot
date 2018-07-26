@@ -41,7 +41,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Is
                 .status("notcompleted")
                 .display_type("all")
                 .fetch()
-                .unwrap()
+                .expect("Failed to retrieve milestone list")
                 .into_iter()
                 .filter(|ms| m == ms.name)
                 .collect::<Vec<milestone::Milestone>>()

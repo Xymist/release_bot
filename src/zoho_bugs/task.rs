@@ -37,7 +37,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
                 .status("notcompleted")
                 .display_type("all")
                 .fetch()
-                .unwrap()
+                .expect("Failed to retrieve list of tasks")
                 .into_iter()
                 .filter(|ms| m == ms.name)
                 .collect::<Vec<milestone::Milestone>>()
@@ -58,7 +58,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
                 .by_id(t.id)
                 .tasks()
                 .fetch()
-                .unwrap()
+                .expect(&format!("Failed to fetch tasks for tasklist {}:", t.name))
         })
         .collect();
     let closed_tasks: Vec<Task> = tasks
