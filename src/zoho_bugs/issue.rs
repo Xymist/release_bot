@@ -29,7 +29,7 @@ impl Issue {
 
 impl fmt::Display for Issue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "- [{}] {} ({})", self.0.key, self.0.title, self.0.classification.classification_type)
+        write!(f, "| [{}] {} | {} |", self.0.key, self.0.title, self.0.classification.classification_type)
     }
 }
 
@@ -91,7 +91,8 @@ impl MDCustomFilters for bug::Bug {
     }
 
     fn is_feature(&self) -> bool {
-        self.classification.classification_type == "Feature(New)"
+        self.classification.classification_type == "Feature(New)" ||
+        self.classification.classification_type == "Enhancement"
     }
 
     fn issue_type(&self) -> &str {

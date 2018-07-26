@@ -39,7 +39,7 @@ fn print_preamble(config: &Config) -> Result<()> {
     let milestones = milestone_list.join(", ");
     println!("{}", PREAMBLE);
     println!(
-        "\nThis includes development of the {} milestone(s).\n\n",
+        "\nThis includes development of the {} milestone(s).\n",
         milestones
     );
     Ok(())
@@ -47,8 +47,8 @@ fn print_preamble(config: &Config) -> Result<()> {
 
 fn print_projects(projects: Vec<Project>, config: &Config) -> Result<()> {
     for project in projects {
-        println!("\n## Closed issues for {}\n", project.name);
-        println!("\n### Customer Issues and Requested Features:\n");
+        println!("\n## Closed Tickets and Tasks for {}\n", project.name);
+        println!("\n| Ticket Name | Ticket Type | Clients (if any) |\n| --- | --- | --- |");
         let client = zh_client(project.id.parse::<i64>()?, config)?;
         let issues = issue::build_list(&client, project.milestones.clone())?;
         let tasks = task::build_list(&client, project.milestones)?;

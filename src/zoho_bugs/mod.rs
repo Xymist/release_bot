@@ -33,8 +33,7 @@ pub fn classify_bugs(issues: IssueList) -> ClassifiedActions {
             if let (true, &Some(ref cfs)) = (bug.has_client(), &bug.0.customfields) {
                 cfs.into_iter()
                     .filter(|cf| cf.label_name == "From a client:")
-                    .map(|cf| &cf.value)
-                    .map(|vc| vc.split(',').map(String::from).collect())
+                    .map(|cf| cf.value.clone())
                     .collect::<Vec<String>>()
             } else if bug.is_feature() {
                 vec![String::from("New Features")]
@@ -61,8 +60,7 @@ pub fn classify_tasks(task_list: TaskList) -> ClassifiedActions {
             if let (true, &Some(ref cfs)) = (task.has_client(), &task.0.custom_fields) {
                 cfs.into_iter()
                     .filter(|cf| cf.label_name == "From a client:")
-                    .map(|cf| &cf.value)
-                    .map(|vc| vc.split(',').map(String::from).collect())
+                    .map(|cf| cf.value.clone())
                     .collect::<Vec<String>>()
             } else {
                 // Tasks are always features, or parts of features
@@ -105,36 +103,35 @@ fn test_merge_actions() {
 }
 
 pub fn print_actions(mut client_list: ClassifiedActions) -> Result<()> {
-    let features = match client_list.remove("New Features") {
+    let mut features = match client_list.remove("New Features") {
         Some(fs) => fs,
         None => Vec::new(),
     };
 
-    let others = match client_list.remove("All Other Changes") {
+    let mut others = match client_list.remove("All Other Changes") {
         Some(os) => os,
         None => Vec::new(),
     };
 
-    let mut sortable: Vec<(&String, &Vec<String>)> = client_list.iter().collect();
-    sortable.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
+    let mut sorted_client_bugs: Vec<(&String, &Vec<String>)> = client_list.iter().collect();
+    sorted_client_bugs.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
 
-    for (client, client_bugs) in sortable {
-        println!("\n#### {} ({})\n", client, client_bugs.len());
+    for (client, client_bugs) in sorted_client_bugs {
         for client_bug in client_bugs.iter() {
-            println!("{}", client_bug);
+            println!("{} {} |", client_bug, client);
         }
     }
 
     if !features.is_empty() {
-        println!("\n### New Non-Client Features ({})\n", features.len());
+        features.sort();
         for feature in &features {
-            println!("{}", feature);
+            println!("{} |", feature);
         }
     }
 
-    println!("\n### All Other Changes ({})\n", others.len());
+    others.sort();
     for other in &others {
-        println!("{}", other);
+        println!("{} |", other);
     }
 
     Ok(())

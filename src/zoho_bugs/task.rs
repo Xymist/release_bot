@@ -15,7 +15,7 @@ pub struct Task(pub task::Task);
 
 impl fmt::Display for Task {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "- {}", self.0.name)
+        write!(f, "| {} | |", self.0.name)
     }
 }
 
