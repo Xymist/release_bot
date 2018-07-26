@@ -29,7 +29,7 @@ impl Issue {
 
 impl fmt::Display for Issue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "- [{}] {}", self.0.key, self.0.title)
+        write!(f, "- [{}] {} ({})", self.0.key, self.0.title, self.0.classification.classification_type)
     }
 }
 

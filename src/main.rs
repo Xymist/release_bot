@@ -48,7 +48,7 @@ fn print_preamble(config: &Config) -> Result<()> {
 fn print_projects(projects: Vec<Project>, config: &Config) -> Result<()> {
     for project in projects {
         println!("\n## Closed issues for {}\n", project.name);
-        println!("\n### Customer Issues:\n");
+        println!("\n### Customer Issues and Requested Features:\n");
         let client = zh_client(project.id.parse::<i64>()?, config)?;
         let issues = issue::build_list(&client, project.milestones.clone())?;
         let tasks = task::build_list(&client, project.milestones)?;

@@ -126,7 +126,7 @@ pub fn print_actions(mut client_list: ClassifiedActions) -> Result<()> {
     }
 
     if !features.is_empty() {
-        println!("\n### New Features ({})\n", features.len());
+        println!("\n### New Non-Client Features ({})\n", features.len());
         for feature in &features {
             println!("{}", feature);
         }
