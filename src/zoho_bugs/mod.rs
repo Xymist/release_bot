@@ -1,14 +1,60 @@
 pub mod issue;
 pub mod task;
 
-use self::{issue::{Issue, IssueList},
-           task::{Task, TaskList}};
+use self::{
+    issue::{Issue, IssueList},
+    task::{Task, TaskList},
+};
 use errors::*;
 use std::{collections::HashMap, rc::Rc};
 use zohohorrorshow::client::ZohoClient;
 use Config;
 
-type ClassifiedActions = HashMap<String, Vec<String>>;
+#[derive(Debug)]
+pub enum Action {
+    ZIssue(Issue),
+    ZTask(Task),
+}
+
+impl Action {
+    pub fn name(&self) -> String {
+        match self {
+            Action::ZIssue(issue) => issue.0.title.clone(),
+            Action::ZTask(task) => task.0.name.clone(),
+        }
+    }
+
+    pub fn display_csv(&self) -> String {
+        match self {
+            Action::ZIssue(issue) => format!(
+                "[{}] {},{},{}",
+                issue.0.key,
+                issue.0.title,
+                issue.0.classification.classification_type,
+                issue.0.reported_person
+            ),
+            Action::ZTask(task) => format!("{},DevelopmentTask,{}", task.0.name, task.0.created_by),
+        }
+    }
+
+    pub fn display_md(&self) -> String {
+        match self {
+            Action::ZIssue(issue) => format!(
+                "| [{}] {} | {} | {} |",
+                issue.0.key,
+                issue.0.title,
+                issue.0.classification.classification_type,
+                issue.0.reported_person
+            ),
+            Action::ZTask(task) => format!(
+                "| {} | DevelopmentTask | {} |",
+                task.0.name, task.0.created_by
+            ),
+        }
+    }
+}
+
+type ClassifiedActions = HashMap<String, Vec<Action>>;
 
 pub fn zh_client(project_id: i64, config: &Config) -> Result<Rc<ZohoClient>> {
     let mut client = ZohoClient::new(
@@ -26,7 +72,7 @@ pub fn zh_client(project_id: i64, config: &Config) -> Result<Rc<ZohoClient>> {
 pub fn classify_bugs(issues: IssueList) -> ClassifiedActions {
     let bugs = issues.bugs;
     let buglist: Vec<Issue> = bugs.into_iter().filter(|bug| bug.is_closed()).collect();
-    let mut client_list: HashMap<String, Vec<String>> = HashMap::new();
+    let mut client_list: HashMap<String, Vec<Action>> = HashMap::new();
 
     for bug in buglist {
         let clients: Vec<String> =
@@ -43,7 +89,7 @@ pub fn classify_bugs(issues: IssueList) -> ClassifiedActions {
         for client in clients {
             let blank = Vec::new();
             let client_bugs = client_list.entry(client).or_insert(blank);
-            client_bugs.push(format!("{}", bug))
+            client_bugs.push(Action::ZIssue(bug.clone()))
         }
     }
 
@@ -53,7 +99,7 @@ pub fn classify_bugs(issues: IssueList) -> ClassifiedActions {
 pub fn classify_tasks(task_list: TaskList) -> ClassifiedActions {
     let tasks = task_list.tasks;
     let tasklist: Vec<Task> = tasks.into_iter().filter(|task| task.closed_tag()).collect();
-    let mut client_list: HashMap<String, Vec<String>> = HashMap::new();
+    let mut client_list: HashMap<String, Vec<Action>> = HashMap::new();
 
     for task in tasklist {
         let clients: Vec<String> =
@@ -69,7 +115,7 @@ pub fn classify_tasks(task_list: TaskList) -> ClassifiedActions {
         for client in clients {
             let blank = Vec::new();
             let client_tasks = client_list.entry(client).or_insert(blank);
-            client_tasks.push(format!("{}", task))
+            client_tasks.push(Action::ZTask(task.clone()))
         }
     }
 
@@ -102,37 +148,68 @@ fn test_merge_actions() {
     assert_eq!(merged.get("Second"), Some(&vec!["a".to_owned()]));
 }
 
-pub fn print_actions(mut client_list: ClassifiedActions) -> Result<()> {
+fn separate_and_sort_actions(
+    mut client_list: ClassifiedActions,
+) -> (Vec<(String, Vec<Action>)>, Vec<Action>, Vec<Action>) {
     let mut features = match client_list.remove("New Features") {
         Some(fs) => fs,
         None => Vec::new(),
     };
+    features.sort_by(|a, b| a.name().cmp(&b.name()));
 
     let mut others = match client_list.remove("All Other Changes") {
         Some(os) => os,
         None => Vec::new(),
     };
+    others.sort_by(|a, b| a.name().cmp(&b.name()));
 
-    let mut sorted_client_bugs: Vec<(&String, &Vec<String>)> = client_list.iter().collect();
+    let mut sorted_client_bugs: Vec<(String, Vec<Action>)> = client_list.into_iter().collect();
     sorted_client_bugs.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
+    return (sorted_client_bugs, features, others);
+}
 
-    for (client, client_bugs) in sorted_client_bugs {
-        for client_bug in client_bugs.iter() {
-            println!("{} {} |", client_bug, client);
+pub fn write_actions_csv(client_list: ClassifiedActions) -> String {
+    let mut output: String = "".to_owned();
+    let (client_bugs, features, others) = separate_and_sort_actions(client_list);
+
+    for (client, bugs) in client_bugs.iter() {
+        for bug in bugs.iter() {
+            output.push_str(&format!(
+                "\n{},{}",
+                bug.display_csv(),
+                str::replace(client, ",", ";")
+            ));
         }
     }
 
-    if !features.is_empty() {
-        features.sort();
-        for feature in &features {
-            println!("{} |", feature);
+    for feature in features {
+        output.push_str(&format!("\n{}", feature.display_csv()));
+    }
+
+    for other in others {
+        output.push_str(&format!("\n{}", other.display_csv()));
+    }
+
+    return output;
+}
+
+pub fn write_actions_md(client_list: ClassifiedActions) -> String {
+    let mut output: String = "".to_owned();
+    let (client_bugs, features, others) = separate_and_sort_actions(client_list);
+
+    for (client, bugs) in client_bugs.iter() {
+        for bug in bugs.iter() {
+            output.push_str(&format!("\n{} {} |", bug.display_md(), client))
         }
     }
 
-    others.sort();
-    for other in &others {
-        println!("{} |", other);
+    for feature in features {
+        output.push_str(&format!("\n{} |", feature.display_md()));
     }
 
-    Ok(())
+    for other in others {
+        output.push_str(&format!("\n{} |", other.display_md()));
+    }
+
+    return output;
 }

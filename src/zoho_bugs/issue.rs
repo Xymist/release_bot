@@ -1,7 +1,9 @@
 use errors::*;
-use std::{fmt, rc::Rc};
-use zohohorrorshow::{client::ZohoClient,
-                     models::{bug, milestone}};
+use std::rc::Rc;
+use zohohorrorshow::{
+    client::ZohoClient,
+    models::{bug, milestone},
+};
 
 const CLOSED_STATUSES: &[&str] = &["Tested on Staging", "Tested on Live", "Closed"];
 
@@ -24,12 +26,6 @@ impl Issue {
 
     pub fn is_feature(&self) -> bool {
         self.0.is_feature()
-    }
-}
-
-impl fmt::Display for Issue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "| [{}] {} | {} |", self.0.key, self.0.title, self.0.classification.classification_type)
     }
 }
 
@@ -66,7 +62,8 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Is
 
     let bugs = bugs_path.fetch()?;
 
-    let buglist: Vec<Issue> = bugs.into_iter()
+    let buglist: Vec<Issue> = bugs
+        .into_iter()
         .filter(|bug| bug.closed_tag())
         .map(Issue)
         .collect();
@@ -91,8 +88,8 @@ impl MDCustomFilters for bug::Bug {
     }
 
     fn is_feature(&self) -> bool {
-        self.classification.classification_type == "Feature(New)" ||
-        self.classification.classification_type == "Enhancement"
+        self.classification.classification_type == "Feature(New)"
+            || self.classification.classification_type == "Enhancement"
     }
 
     fn issue_type(&self) -> &str {

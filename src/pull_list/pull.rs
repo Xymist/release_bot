@@ -12,6 +12,6 @@ pub struct Pull {
 
 impl fmt::Display for Pull {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "- [{}]({})", self.title, self.html_url)
+        write!(f, "[{}]({})", self.title, self.html_url)
     }
 }

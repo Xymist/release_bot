@@ -1,7 +1,9 @@
 use errors::*;
-use std::{fmt, rc::Rc};
-use zohohorrorshow::{client::ZohoClient,
-                     models::{milestone, task, tasklist}};
+use std::rc::Rc;
+use zohohorrorshow::{
+    client::ZohoClient,
+    models::{milestone, task, tasklist},
+};
 
 const CLOSED_STATUSES: &[&str] = &["Tested on Staging", "Tested on Live", "Closed"];
 
@@ -12,12 +14,6 @@ pub struct TaskList {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Task(pub task::Task);
-
-impl fmt::Display for Task {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "| {} | |", self.0.name)
-    }
-}
 
 impl Task {
     pub fn closed_tag(&self) -> bool {

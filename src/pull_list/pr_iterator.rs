@@ -60,7 +60,8 @@ impl PRIterator {
             // a header is attached with the url of the next set.
             if let Some(header) = response.headers().get::<Link>() {
                 for val in header.values() {
-                    if val.rel()
+                    if val
+                        .rel()
                         .map(|rel| rel.contains(&RelationType::Next))
                         .unwrap_or(false)
                     {

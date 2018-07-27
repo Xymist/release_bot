@@ -20,9 +20,14 @@ mod zoho_bugs;
 
 use config::{Config, Project};
 use errors::*;
-use pull_list::{print_repo, repo::Repo};
-use zoho_bugs::{classify_bugs, classify_tasks, issue, merge_actions, print_actions, task,
-                zh_client};
+use pull_list::{csv_repo, format_repo, repo::Repo};
+use std::env;
+use std::fs::File;
+use std::io::prelude::*;
+use zoho_bugs::{
+    classify_bugs, classify_tasks, issue, merge_actions, task, write_actions_csv, write_actions_md,
+    zh_client,
+};
 
 const PREAMBLE: &str = "Hi everyone,\n
 We have released a new version of Market Dojo to live.\n
@@ -30,48 +35,125 @@ Please let your customers know if they are listed and you feel the fixes will be
 A complete list of changes is attached.\n
 Many thanks to the whole team who have worked incredibly hard to make this release possible.\n";
 
-fn print_preamble(config: &Config) -> Result<()> {
+fn format_preamble(config: &Config) -> String {
+    let mut output: String = "".to_owned();
     let milestone_list: Vec<String> = config
         .zoho_projects
         .iter()
         .map(|p| p.milestones.join(", "))
         .collect();
     let milestones = milestone_list.join(", ");
-    println!("{}", PREAMBLE);
-    println!(
+
+    output.push_str(PREAMBLE);
+    output.push_str(&format!(
         "\nThis includes development of the {} milestone(s).\n",
         milestones
-    );
-    Ok(())
+    ));
+    return output;
 }
 
-fn print_projects(projects: Vec<Project>, config: &Config) -> Result<()> {
+fn format_projects(projects: Vec<Project>, config: &Config) -> Result<String> {
+    let mut output: String = "".to_owned();
     for project in projects {
-        println!("\n## Closed Tickets and Tasks for {}\n", project.name);
-        println!("\n| Ticket Name | Ticket Type | Clients (if any) |\n| --- | --- | --- |");
+        output.push_str(&format!(
+            "\n## Closed Tickets and Tasks for {}\n",
+            project.name
+        ));
+        output.push_str(
+            "| Ticket Name | Ticket Type | Raised By | Clients |\n| --- | --- | --- | --- |",
+        );
         let client = zh_client(project.id.parse::<i64>()?, config)?;
         let issues = issue::build_list(&client, project.milestones.clone())?;
         let tasks = task::build_list(&client, project.milestones)?;
-        print_actions(merge_actions(classify_bugs(issues), classify_tasks(tasks)))?;
+        output.push_str(&write_actions_md(merge_actions(
+            classify_bugs(issues),
+            classify_tasks(tasks),
+        )));
     }
+    Ok(output)
+}
+
+fn format_repos(repos: Vec<Repo>) -> String {
+    let mut output: String = "".to_owned();
+    for repo in repos {
+        output.push_str(&format_repo(repo));
+    }
+    return output;
+}
+
+fn format_repos_as_csv(repos: Vec<Repo>) -> String {
+    let mut output: String = "Repository,Pull Request,Contributor".to_owned();
+    for repo in repos {
+        if let Some(csv) = csv_repo(repo) {
+            output.push_str(&format!("\n{}", csv));
+        }
+    }
+    return output;
+}
+
+fn format_projects_as_csv(projects: Vec<Project>, config: &Config) -> Result<String> {
+    let mut output: String = "Ticket Name,Ticket Type,Raised By,Clients".to_owned();
+    for project in projects {
+        let client = zh_client(project.id.parse::<i64>()?, config)?;
+        let issues = issue::build_list(&client, project.milestones.clone())?;
+        let tasks = task::build_list(&client, project.milestones)?;
+        output.push_str(&format!(
+            "{}",
+            write_actions_csv(merge_actions(classify_bugs(issues), classify_tasks(tasks)))
+        ));
+    }
+    return Ok(output);
+}
+
+fn markdown_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Result<()> {
+    let mut file = File::create(&format!(
+        "release-{}.md",
+        config.zoho_projects[0].milestones[0]
+    ))?;
+    file.write_fmt(format_args!("{}", format_preamble(config)))?;
+    file.write_fmt(format_args!("{}", format_projects(projects, config)?))?;
+    file.write_fmt(format_args!("{}", format_repos(repos)))?;
     Ok(())
 }
 
-fn print_repos(repos: Vec<Repo>) -> Result<()> {
-    for repo in repos {
-        print_repo(repo)?;
-    }
+fn csv_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Result<()> {
+    let mut project_file = File::create(&format!(
+        "projects-{}.csv",
+        config.zoho_projects[0].milestones[0]
+    ))?;
+    let mut repository_file = File::create(&format!(
+        "repos-{}.csv",
+        config.zoho_projects[0].milestones[0]
+    ))?;
+    project_file.write_fmt(format_args!(
+        "{}",
+        format_projects_as_csv(projects, config)?
+    ))?;
+    repository_file.write_fmt(format_args!("{}", format_repos_as_csv(repos)))?;
     Ok(())
 }
 
 fn run() -> Result<i32> {
+    let args: Vec<String> = env::args().collect();
     let config = Config::default();
     let repos = config.repos.clone();
     let projects = config.zoho_projects.clone();
 
-    print_preamble(&config)?;
-    print_projects(projects, &config)?;
-    print_repos(repos)?;
+    let output_option = match args.len() {
+        1 => "md",
+        2 => &args[1],
+        _ => bail!("Too many arguments"),
+    };
+
+    match output_option {
+        "all" => {
+            csv_output(&config, projects.clone(), repos.clone())?;
+            markdown_output(&config, projects, repos)?
+        }
+        "csv" => csv_output(&config, projects, repos)?,
+        "md" => markdown_output(&config, projects, repos)?,
+        _ => println!("Not a valid output format. Try 'csv', 'md' or 'all'"),
+    };
 
     Ok(0)
 }
