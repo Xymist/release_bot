@@ -1,6 +1,6 @@
 [package]
 name = "release_bot"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Xymist <james@jamieduerden.me>"]
 readme = "README.md"
 
