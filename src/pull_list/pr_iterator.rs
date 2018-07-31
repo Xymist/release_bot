@@ -43,19 +43,11 @@ impl PRIterator {
             bail!("Server error: {:?}", response.status());
         }
 
-        let item_iter = response.json::<Vec<Pull>>()?.into_iter();
-        self.items = if let Some(ref pred) = self.predicate {
-            item_iter
-                .filter(|pull| pred.test(pull))
-                .collect::<Vec<Pull>>()
-                .into_iter()
-        } else {
-            item_iter
-        };
+        let returned_items = response.json::<Vec<Pull>>()?;
 
         // We only bother getting the next set if the one we just processed
         // appears not to be the end of the collection.
-        if self.items.len() == 100 {
+        if returned_items.len() == 100 {
             // The response that GitHub's API will give is limited to a few PRs;
             // a header is attached with the url of the next set.
             if let Some(header) = response.headers().get::<Link>() {
@@ -71,6 +63,17 @@ impl PRIterator {
                 }
             }
         }
+
+        let item_iter = returned_items.into_iter();
+
+        self.items = if let Some(ref pred) = self.predicate {
+            item_iter
+                .filter(|pull| pred.test(pull))
+                .collect::<Vec<Pull>>()
+                .into_iter()
+        } else {
+            item_iter
+        };
 
         Ok(self.items.next())
     }

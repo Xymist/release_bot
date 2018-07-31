@@ -33,7 +33,10 @@ impl Action {
                 issue.0.classification.classification_type,
                 issue.0.reported_person
             ),
-            Action::ZTask(task) => format!("[{}] {},DevelopmentTask,{}", task.0.key, task.0.name, task.0.created_person),
+            Action::ZTask(task) => format!(
+                "[{}] {},DevelopmentTask,{}",
+                task.0.key, task.0.name, task.0.created_person
+            ),
         }
     }
 
@@ -161,7 +164,10 @@ fn separate_actions(
     return (client_bugs, features, others);
 }
 
-fn duplicate_features(client_bugs: Vec<(String, Vec<Action>)>, mut features: Vec<Action>,) -> (Vec<(String, Vec<Action>)>, Vec<Action>) {
+fn duplicate_features(
+    client_bugs: Vec<(String, Vec<Action>)>,
+    mut features: Vec<Action>,
+) -> (Vec<(String, Vec<Action>)>, Vec<Action>) {
     // In order to enable displaying all features in the feature block, regardless of client status,
     // we copy the client tickets which are also new features and dup them into the feature block.
     for client_bug in client_bugs.iter() {
@@ -169,13 +175,17 @@ fn duplicate_features(client_bugs: Vec<(String, Vec<Action>)>, mut features: Vec
             if bug.is_feature() {
                 features.push(bug)
             };
-        };
-    };
+        }
+    }
 
-    return (client_bugs, features)
+    return (client_bugs, features);
 }
 
-fn sort_actions(mut client_bugs: Vec<(String, Vec<Action>)>, mut features: Vec<Action>, mut others: Vec<Action>) -> (Vec<(String, Vec<Action>)>, Vec<Action>, Vec<Action>){
+fn sort_actions(
+    mut client_bugs: Vec<(String, Vec<Action>)>,
+    mut features: Vec<Action>,
+    mut others: Vec<Action>,
+) -> (Vec<(String, Vec<Action>)>, Vec<Action>, Vec<Action>) {
     client_bugs.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
     features.sort_by(|a, b| a.name().cmp(&b.name()));
     others.sort_by(|a, b| a.name().cmp(&b.name()));

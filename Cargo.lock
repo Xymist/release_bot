@@ -732,7 +732,7 @@ dependencies = [
  "serde 1.0.37 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.37 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "zohohorrorshow 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zohohorrorshow 0.5.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1264,7 +1264,7 @@ dependencies = [
 
 [[package]]
 name = "zohohorrorshow"
-version = "0.5.8"
+version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "chrono 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1429,4 +1429,4 @@ dependencies = [
 "checksum winapi-i686-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
 "checksum winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 "checksum ws2_32-sys 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d59cefebd0c892fa2dd6de581e937301d8552cb44489cdff035c6187cb63fa5e"
-"checksum zohohorrorshow 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)" = "6770e520ce48951d7fb6bf7afc857c033bbc94ef4befc1133fef2e8de129ac4d"
+"checksum zohohorrorshow 0.5.9 (registry+https://github.com/rust-lang/crates.io-index)" = "cf1d475c60f78c231d389808b2e2366561891b72798cfd5f2943d995241f17d9"

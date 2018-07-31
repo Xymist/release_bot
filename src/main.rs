@@ -56,7 +56,7 @@ fn format_projects_as_md(projects: Vec<Project>, config: &Config) -> Result<Stri
     let mut output: String = "".to_owned();
     for project in projects {
         output.push_str(&format!(
-            "\n## Closed Tickets and Tasks for {}\n",
+            "\n## Closed Tickets and Tasks for {}\n\n",
             project.name
         ));
 
@@ -108,7 +108,10 @@ fn markdown_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) ->
         "release-{}.md",
         config.zoho_projects[0].milestones[0]
     ))?;
-    file.write_fmt(format_args!("# Release {}\n\n", config.zoho_projects[0].milestones[0]))?;
+    file.write_fmt(format_args!(
+        "# Release {}\n\n",
+        config.zoho_projects[0].milestones[0]
+    ))?;
     file.write_fmt(format_args!("{}", format_preamble(config)))?;
     file.write_fmt(format_args!("{}", format_projects_as_md(projects, config)?))?;
     file.write_fmt(format_args!("{}", format_repos_as_md(repos)))?;

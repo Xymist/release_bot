@@ -58,9 +58,16 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
         })
         .collect();
 
-    let tasks: Vec<task::Task> = task_ids.iter().map(|tid| {
-        task::tasks(client).by_id(*tid).fetch().expect(&format!("Failed to fetch task {}", tid)).remove(0)
-    }).collect();
+    let tasks: Vec<task::Task> = task_ids
+        .iter()
+        .map(|tid| {
+            task::tasks(client)
+                .by_id(*tid)
+                .fetch()
+                .expect(&format!("Failed to fetch task {}", tid))
+                .remove(0)
+        })
+        .collect();
 
     tasklists.retain(|t| ms_ids.contains(&t.milestone.id));
     let tl_ids: Vec<i64> = tasklists.into_iter().map(|m| m.id).collect();
@@ -68,9 +75,9 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
         .into_iter()
         .filter(|t| t.closed_tag())
         .filter(|t| {
-            milestones.contains(&t.milestone()) ||
-            tl_ids.contains(&t.tasklist_id) ||
-            tl_ids.contains(&t.clone().tasklist.unwrap_or_default().id)
+            milestones.contains(&t.milestone())
+                || tl_ids.contains(&t.tasklist_id)
+                || tl_ids.contains(&t.clone().tasklist.unwrap_or_default().id)
         })
         .map(Task)
         .collect();
@@ -87,9 +94,7 @@ pub trait MDCustomFilters {
 
 impl MDCustomFilters for task::Task {
     fn closed_tag(&self) -> bool {
-        CLOSED_STATUSES
-            .iter()
-            .any(|x| *x == self.status.name)
+        CLOSED_STATUSES.iter().any(|x| *x == self.status.name)
     }
 
     fn has_client(&self) -> bool {
@@ -104,13 +109,14 @@ impl MDCustomFilters for task::Task {
         if self.custom_fields.is_some() {
             let cfs = self.custom_fields.as_ref().unwrap();
             if cfs.iter().any(|cf| cf.label_name == "Release Milestone") {
-                return cfs.iter()
-                            .filter(|cf| cf.label_name == "Release Milestone")
-                            .map(|cf| cf.value.clone())
-                            .collect::<Vec<String>>()
-                            .join("");
+                return cfs
+                    .iter()
+                    .filter(|cf| cf.label_name == "Release Milestone")
+                    .map(|cf| cf.value.clone())
+                    .collect::<Vec<String>>()
+                    .join("");
             }
         }
-        return "".to_owned()
+        return "".to_owned();
     }
 }
