@@ -10,7 +10,7 @@ use std::{collections::HashMap, rc::Rc};
 use zohohorrorshow::client::ZohoClient;
 use Config;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Action {
     ZIssue(Issue),
     ZTask(Task),
@@ -50,6 +50,13 @@ impl Action {
                 "| [{}] {} | DevelopmentTask | {} |",
                 task.0.key, task.0.name, task.0.created_person
             ),
+        }
+    }
+
+    pub fn is_feature(&self) -> bool {
+        match self {
+            Action::ZIssue(issue) => issue.is_feature(),
+            Action::ZTask(_) => true,
         }
     }
 }
@@ -133,29 +140,53 @@ pub fn merge_actions(
     task_list
 }
 
-fn separate_and_sort_actions(
+fn separate_actions(
     mut client_list: ClassifiedActions,
 ) -> (Vec<(String, Vec<Action>)>, Vec<Action>, Vec<Action>) {
-    let mut features = match client_list.remove("New Features") {
+    // Extract list of new features which have no clients
+    let features = match client_list.remove("New Features") {
         Some(fs) => fs,
         None => Vec::new(),
     };
-    features.sort_by(|a, b| a.name().cmp(&b.name()));
 
-    let mut others = match client_list.remove("All Other Changes") {
+    // Extract list of other tickets fixed in this release
+    let others = match client_list.remove("All Other Changes") {
         Some(os) => os,
         None => Vec::new(),
     };
+
+    // The remainder are all the client requested tickets, some of which may be features
+    let client_bugs: Vec<(String, Vec<Action>)> = client_list.into_iter().collect();
+
+    return (client_bugs, features, others);
+}
+
+fn duplicate_features(client_bugs: Vec<(String, Vec<Action>)>, mut features: Vec<Action>,) -> (Vec<(String, Vec<Action>)>, Vec<Action>) {
+    // In order to enable displaying all features in the feature block, regardless of client status,
+    // we copy the client tickets which are also new features and dup them into the feature block.
+    for client_bug in client_bugs.iter() {
+        for bug in client_bug.1.clone() {
+            if bug.is_feature() {
+                features.push(bug)
+            };
+        };
+    };
+
+    return (client_bugs, features)
+}
+
+fn sort_actions(mut client_bugs: Vec<(String, Vec<Action>)>, mut features: Vec<Action>, mut others: Vec<Action>) -> (Vec<(String, Vec<Action>)>, Vec<Action>, Vec<Action>){
+    client_bugs.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
+    features.sort_by(|a, b| a.name().cmp(&b.name()));
     others.sort_by(|a, b| a.name().cmp(&b.name()));
 
-    let mut sorted_client_bugs: Vec<(String, Vec<Action>)> = client_list.into_iter().collect();
-    sorted_client_bugs.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
-    return (sorted_client_bugs, features, others);
+    return (client_bugs, features, others);
 }
 
 pub fn write_actions_csv(client_list: ClassifiedActions) -> String {
     let mut output: String = "".to_owned();
-    let (client_bugs, features, others) = separate_and_sort_actions(client_list);
+    let (cb, f, o) = separate_actions(client_list);
+    let (client_bugs, features, others) = sort_actions(cb, f, o);
 
     for (client, bugs) in client_bugs.iter() {
         for bug in bugs.iter() {
@@ -179,8 +210,15 @@ pub fn write_actions_csv(client_list: ClassifiedActions) -> String {
 }
 
 pub fn write_actions_md(client_list: ClassifiedActions) -> String {
-    let mut output: String = "".to_owned();
-    let (client_bugs, features, others) = separate_and_sort_actions(client_list);
+    let (cb, f, o) = separate_actions(client_list);
+    let (cb_f, f_cb) = duplicate_features(cb, f);
+    let (client_bugs, features, others) = sort_actions(cb_f, f_cb, o);
+
+    let mut output: String = "### Client Bugs and Features\n".to_owned();
+
+    output.push_str(
+        "\n| Ticket Name | Ticket Type | Raised By | Clients |\n| --- | --- | --- | --- |",
+    );
 
     for (client, bugs) in client_bugs.iter() {
         for bug in bugs.iter() {
@@ -188,12 +226,20 @@ pub fn write_actions_md(client_list: ClassifiedActions) -> String {
         }
     }
 
+    output.push_str(
+        "\n\n### Features and Enhancements\n\n| Ticket Name | Ticket Type | Raised By |\n| --- | --- | --- |",
+    );
+
     for feature in features {
-        output.push_str(&format!("\n{} |", feature.display_md()));
+        output.push_str(&format!("\n{}", feature.display_md()));
     }
 
+    output.push_str(
+        "\n\n### Other Bugs\n\n| Ticket Name | Ticket Type | Raised By |\n| --- | --- | --- |",
+    );
+
     for other in others {
-        output.push_str(&format!("\n{} |", other.display_md()));
+        output.push_str(&format!("\n{}", other.display_md()));
     }
 
     return output;

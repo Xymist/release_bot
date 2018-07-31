@@ -52,16 +52,14 @@ fn format_preamble(config: &Config) -> String {
     return output;
 }
 
-fn format_projects(projects: Vec<Project>, config: &Config) -> Result<String> {
+fn format_projects_as_md(projects: Vec<Project>, config: &Config) -> Result<String> {
     let mut output: String = "".to_owned();
     for project in projects {
         output.push_str(&format!(
             "\n## Closed Tickets and Tasks for {}\n",
             project.name
         ));
-        output.push_str(
-            "| Ticket Name | Ticket Type | Raised By | Clients |\n| --- | --- | --- | --- |",
-        );
+
         let client = zh_client(project.id.parse::<i64>()?, config)?;
         let issues = issue::build_list(&client, project.milestones.clone())?;
         let tasks = task::build_list(&client, project.milestones)?;
@@ -73,7 +71,7 @@ fn format_projects(projects: Vec<Project>, config: &Config) -> Result<String> {
     Ok(output)
 }
 
-fn format_repos(repos: Vec<Repo>) -> String {
+fn format_repos_as_md(repos: Vec<Repo>) -> String {
     let mut output: String = "".to_owned();
     for repo in repos {
         output.push_str(&format_repo(repo));
@@ -110,9 +108,10 @@ fn markdown_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) ->
         "release-{}.md",
         config.zoho_projects[0].milestones[0]
     ))?;
+    file.write_fmt(format_args!("# Release {}\n\n", config.zoho_projects[0].milestones[0]))?;
     file.write_fmt(format_args!("{}", format_preamble(config)))?;
-    file.write_fmt(format_args!("{}", format_projects(projects, config)?))?;
-    file.write_fmt(format_args!("{}", format_repos(repos)))?;
+    file.write_fmt(format_args!("{}", format_projects_as_md(projects, config)?))?;
+    file.write_fmt(format_args!("{}", format_repos_as_md(repos)))?;
     Ok(())
 }
 
