@@ -6,7 +6,7 @@ use self::{
     task::{Task, TaskList},
 };
 use errors::*;
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 use zohohorrorshow::client::ZohoClient;
 use Config;
 
@@ -21,6 +21,20 @@ impl Action {
         match self {
             Action::ZIssue(issue) => issue.0.title.clone(),
             Action::ZTask(task) => task.0.name.clone(),
+        }
+    }
+
+    // pub fn is_feature(&self) -> bool {
+    //     match self {
+    //         Action::ZIssue(issue) => issue.is_feature(),
+    //         Action::ZTask(_) => true,
+    //     }
+    // }
+
+    pub fn has_client(&self) -> bool {
+        match self {
+            Action::ZIssue(issue) => issue.has_client(),
+            Action::ZTask(task) => task.has_client(),
         }
     }
 
@@ -55,16 +69,36 @@ impl Action {
             ),
         }
     }
-
-    pub fn is_feature(&self) -> bool {
-        match self {
-            Action::ZIssue(issue) => issue.is_feature(),
-            Action::ZTask(_) => true,
-        }
-    }
 }
 
-type ClassifiedActions = HashMap<String, Vec<Action>>;
+pub struct ClientBug {
+    clients: Vec<String>,
+    bug: Action
+}
+
+pub struct ClassifiedActions {
+    client_bugs: Vec<ClientBug>,
+    features: Vec<Action>,
+    others: Vec<Action>,
+}
+
+impl ClassifiedActions {
+    pub fn new() -> ClassifiedActions {
+        ClassifiedActions {
+            client_bugs: vec![],
+            features: vec![],
+            others: vec![],
+        }
+    }
+
+    pub fn sort(mut self) -> Self {
+        self.client_bugs.sort_by(|a, b| a.clients.len().cmp(&b.clients.len()));
+        self.features.sort_by(|a, b| a.name().cmp(&b.name()));
+        self.others.sort_by(|a, b| a.name().cmp(&b.name()));
+
+        return self;
+    }
+}
 
 pub fn zh_client(project_id: i64, config: &Config) -> Result<Rc<ZohoClient>> {
     let mut client = ZohoClient::new(
@@ -82,25 +116,32 @@ pub fn zh_client(project_id: i64, config: &Config) -> Result<Rc<ZohoClient>> {
 pub fn classify_bugs(issues: IssueList) -> ClassifiedActions {
     let bugs = issues.bugs;
     let buglist: Vec<Issue> = bugs.into_iter().filter(|bug| bug.is_closed()).collect();
-    let mut client_list: HashMap<String, Vec<Action>> = HashMap::new();
+    let mut client_list: ClassifiedActions = ClassifiedActions::new();
 
     for bug in buglist {
-        let clients: Vec<String> =
-            if let (true, &Some(ref cfs)) = (bug.has_client(), &bug.0.customfields) {
-                cfs.into_iter()
-                    .filter(|cf| cf.label_name == "From a client:")
-                    .map(|cf| cf.value.clone())
-                    .collect::<Vec<String>>()
-            } else if bug.is_feature() {
-                vec![String::from("New Features")]
-            } else {
-                vec![String::from("All Other Changes")]
-            };
-        for client in clients {
-            let blank = Vec::new();
-            let client_bugs = client_list.entry(client).or_insert(blank);
-            client_bugs.push(Action::ZIssue(bug.clone()))
-        }
+        if let (true, &Some(ref cfs)) = (bug.has_client(), &bug.0.customfields) {
+            let clients: Vec<String> = cfs.into_iter()
+                .filter(|cf| cf.label_name == "From a client:")
+                .nth(0)
+                .expect("Somehow a task with clients and custom fields had no client custom field")
+                .value
+                .split(",")
+                .map(|s| s.to_owned())
+                .collect();
+
+            client_list.client_bugs.push(ClientBug {
+                clients: clients,
+                bug: Action::ZIssue(bug.clone())
+            });
+        };
+
+        if bug.is_feature() {
+            client_list.features.push(Action::ZIssue(bug.clone()))
+        };
+
+        if !bug.has_client() && !bug.is_feature() {
+            client_list.others.push(Action::ZIssue(bug.clone()))
+        };
     }
 
     client_list
@@ -109,110 +150,60 @@ pub fn classify_bugs(issues: IssueList) -> ClassifiedActions {
 pub fn classify_tasks(task_list: TaskList) -> ClassifiedActions {
     let tasks = task_list.tasks;
     let tasklist: Vec<Task> = tasks.into_iter().filter(|task| task.closed_tag()).collect();
-    let mut client_list: HashMap<String, Vec<Action>> = HashMap::new();
+    let mut client_list: ClassifiedActions = ClassifiedActions::new();
 
     for task in tasklist {
-        let clients: Vec<String> =
-            if let (true, &Some(ref cfs)) = (task.has_client(), &task.0.custom_fields) {
-                cfs.into_iter()
-                    .filter(|cf| cf.label_name == "From a client:")
-                    .map(|cf| cf.value.clone())
-                    .collect::<Vec<String>>()
-            } else {
-                // Tasks are always features, or parts of features
-                vec![String::from("New Features")]
-            };
-        for client in clients {
-            let blank = Vec::new();
-            let client_tasks = client_list.entry(client).or_insert(blank);
-            client_tasks.push(Action::ZTask(task.clone()))
+        if let (true, &Some(ref cfs)) = (task.has_client(), &task.0.custom_fields) {
+            let clients: Vec<String> = cfs.into_iter()
+                .filter(|cf| cf.label_name == "From a client:")
+                .nth(0)
+                .expect("Somehow a task with clients and custom fields had no client custom field")
+                .value
+                .split(",")
+                .map(|s| s.to_owned())
+                .collect();
+
+            client_list.client_bugs.push(ClientBug {
+                clients: clients,
+                bug: Action::ZTask(task.clone())
+            });
         }
+
+        client_list.features.push(Action::ZTask(task.clone()));
     }
 
     client_list
 }
 
 pub fn merge_actions(
-    issue_list: ClassifiedActions,
+    mut issue_list: ClassifiedActions,
     mut task_list: ClassifiedActions,
 ) -> ClassifiedActions {
-    for (client, mut bugs) in issue_list {
-        let client_tasks = task_list.entry(client).or_insert_with(Vec::new);
-        client_tasks.append(&mut bugs)
-    }
-    task_list
-}
-
-fn separate_actions(
-    mut client_list: ClassifiedActions,
-) -> (Vec<(String, Vec<Action>)>, Vec<Action>, Vec<Action>) {
-    // Extract list of new features which have no clients
-    let features = match client_list.remove("New Features") {
-        Some(fs) => fs,
-        None => Vec::new(),
-    };
-
-    // Extract list of other tickets fixed in this release
-    let others = match client_list.remove("All Other Changes") {
-        Some(os) => os,
-        None => Vec::new(),
-    };
-
-    // The remainder are all the client requested tickets, some of which may be features
-    let client_bugs: Vec<(String, Vec<Action>)> = client_list.into_iter().collect();
-
-    return (client_bugs, features, others);
-}
-
-fn duplicate_features(
-    client_bugs: Vec<(String, Vec<Action>)>,
-    mut features: Vec<Action>,
-) -> (Vec<(String, Vec<Action>)>, Vec<Action>) {
-    // In order to enable displaying all features in the feature block, regardless of client status,
-    // we copy the client tickets which are also new features and dup them into the feature block.
-    for client_bug in client_bugs.iter() {
-        for bug in client_bug.1.clone() {
-            if bug.is_feature() {
-                features.push(bug)
-            };
-        }
-    }
-
-    return (client_bugs, features);
-}
-
-fn sort_actions(
-    mut client_bugs: Vec<(String, Vec<Action>)>,
-    mut features: Vec<Action>,
-    mut others: Vec<Action>,
-) -> (Vec<(String, Vec<Action>)>, Vec<Action>, Vec<Action>) {
-    client_bugs.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
-    features.sort_by(|a, b| a.name().cmp(&b.name()));
-    others.sort_by(|a, b| a.name().cmp(&b.name()));
-
-    return (client_bugs, features, others);
+    issue_list.client_bugs.append(&mut task_list.client_bugs);
+    issue_list.features.append(&mut task_list.features);
+    issue_list.others.append(&mut task_list.others);
+    issue_list
 }
 
 pub fn write_actions_csv(client_list: ClassifiedActions) -> String {
     let mut output: String = "".to_owned();
-    let (cb, f, o) = separate_actions(client_list);
-    let (client_bugs, features, others) = sort_actions(cb, f, o);
+    let sorted_tickets = client_list.sort();
 
-    for (client, bugs) in client_bugs.iter() {
-        for bug in bugs.iter() {
-            output.push_str(&format!(
-                "\n{},{}",
-                bug.display_csv(),
-                str::replace(client, ",", ";")
-            ));
+    for client_bug in sorted_tickets.client_bugs.iter() {
+        output.push_str(&format!(
+            "\n{},{}",
+            client_bug.bug.display_csv(),
+            client_bug.clients.join(";")
+        ));
+    }
+
+    for feature in sorted_tickets.features {
+        if !feature.has_client() {
+            output.push_str(&format!("\n{}", feature.display_csv()));
         }
     }
 
-    for feature in features {
-        output.push_str(&format!("\n{}", feature.display_csv()));
-    }
-
-    for other in others {
+    for other in sorted_tickets.others {
         output.push_str(&format!("\n{}", other.display_csv()));
     }
 
@@ -220,9 +211,7 @@ pub fn write_actions_csv(client_list: ClassifiedActions) -> String {
 }
 
 pub fn write_actions_md(client_list: ClassifiedActions) -> String {
-    let (cb, f, o) = separate_actions(client_list);
-    let (cb_f, f_cb) = duplicate_features(cb, f);
-    let (client_bugs, features, others) = sort_actions(cb_f, f_cb, o);
+    let sorted_tickets = client_list.sort();
 
     let mut output: String = "### Client Bugs and Features\n".to_owned();
 
@@ -230,17 +219,15 @@ pub fn write_actions_md(client_list: ClassifiedActions) -> String {
         "\n| Ticket Name | Ticket Type | Raised By | Clients |\n| --- | --- | --- | --- |",
     );
 
-    for (client, bugs) in client_bugs.iter() {
-        for bug in bugs.iter() {
-            output.push_str(&format!("\n{} {} |", bug.display_md(), client))
-        }
+    for client_bug in sorted_tickets.client_bugs.iter() {
+        output.push_str(&format!("\n{} {} |", client_bug.bug.display_md(), client_bug.clients.join(";")))
     }
 
     output.push_str(
         "\n\n### Features and Enhancements\n\n| Ticket Name | Ticket Type | Raised By |\n| --- | --- | --- |",
     );
 
-    for feature in features {
+    for feature in sorted_tickets.features {
         output.push_str(&format!("\n{}", feature.display_md()));
     }
 
@@ -248,7 +235,7 @@ pub fn write_actions_md(client_list: ClassifiedActions) -> String {
         "\n\n### Other Bugs\n\n| Ticket Name | Ticket Type | Raised By |\n| --- | --- | --- |",
     );
 
-    for other in others {
+    for other in sorted_tickets.others {
         output.push_str(&format!("\n{}", other.display_md()));
     }
 

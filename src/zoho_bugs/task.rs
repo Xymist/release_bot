@@ -54,6 +54,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
                 .fetch()
                 .expect(&format!("Failed to fetch tasks for tasklist {}:", t.name))
                 .into_iter()
+                .filter(|t| t.closed_tag())
                 .map(|t| t.id)
         })
         .collect();
@@ -73,7 +74,6 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
     let tl_ids: Vec<i64> = tasklists.into_iter().map(|m| m.id).collect();
     let closed_tasks: Vec<Task> = tasks
         .into_iter()
-        .filter(|t| t.closed_tag())
         .filter(|t| {
             milestones.contains(&t.milestone())
                 || tl_ids.contains(&t.tasklist_id)
@@ -81,6 +81,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
         })
         .map(Task)
         .collect();
+
     Ok(TaskList {
         tasks: closed_tasks,
     })
