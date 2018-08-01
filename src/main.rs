@@ -25,7 +25,7 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use zoho_bugs::{
-    classify_bugs, classify_tasks, issue, merge_actions, task, write_actions_csv, write_actions_md,
+    classify_actions, issue, merge_actions, task, write_actions_csv, write_actions_md,
     zh_client,
 };
 
@@ -64,8 +64,8 @@ fn format_projects_as_md(projects: Vec<Project>, config: &Config) -> Result<Stri
         let issues = issue::build_list(&client, project.milestones.clone())?;
         let tasks = task::build_list(&client, project.milestones)?;
         output.push_str(&write_actions_md(merge_actions(
-            classify_bugs(issues),
-            classify_tasks(tasks),
+            classify_actions(issues),
+            classify_actions(tasks),
         )));
     }
     Ok(output)
@@ -97,7 +97,7 @@ fn format_projects_as_csv(projects: Vec<Project>, config: &Config) -> Result<Str
         let tasks = task::build_list(&client, project.milestones)?;
         output.push_str(&format!(
             "{}",
-            write_actions_csv(merge_actions(classify_bugs(issues), classify_tasks(tasks)))
+            write_actions_csv(merge_actions(classify_actions(issues), classify_actions(tasks)))
         ));
     }
     return Ok(output);

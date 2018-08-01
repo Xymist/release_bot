@@ -1,11 +1,11 @@
 pub mod issue;
 pub mod task;
-mod ticket_iterator;
+mod issue_iterator;
 mod task_iterator;
 
 use self::{
-    issue::{Issue, IssueList},
-    task::{Task, TaskList},
+    issue::Issue,
+    task::Task,
 };
 
 use errors::*;
@@ -13,10 +13,25 @@ use std::rc::Rc;
 use zohohorrorshow::client::ZohoClient;
 use Config;
 
+pub const CLOSED_STATUSES: &[&str] = &["Tested on Staging", "Tested On Staging", "Tested on Live", "Closed"];
+
+pub trait MDCustomFilters {
+    fn has_client(&self) -> bool;
+    fn is_feature(&self) -> bool;
+    fn issue_type(&self) -> &str;
+    fn closed_tag(&self) -> bool;
+    fn milestone(&self) -> String;
+}
+
 #[derive(Debug, Clone)]
 pub enum Action {
     ZIssue(Issue),
     ZTask(Task),
+}
+
+pub struct CustomField {
+    label_name: String,
+    value: String,
 }
 
 impl Action {
@@ -27,17 +42,46 @@ impl Action {
         }
     }
 
-    // pub fn is_feature(&self) -> bool {
-    //     match self {
-    //         Action::ZIssue(issue) => issue.is_feature(),
-    //         Action::ZTask(task) => task.is_feature(),
-    //     }
-    // }
+    pub fn is_feature(&self) -> bool {
+        match self {
+            Action::ZIssue(issue) => issue.is_feature(),
+            Action::ZTask(task) => task.is_feature(),
+        }
+    }
 
     pub fn has_client(&self) -> bool {
         match self {
             Action::ZIssue(issue) => issue.has_client(),
             Action::ZTask(task) => task.has_client(),
+        }
+    }
+
+    pub fn custom_fields(&self) -> Option<Vec<CustomField>> {
+        match self {
+            Action::ZIssue(issue) => {
+                if issue.0.customfields.is_some() {
+                    Some(issue.0.customfields.clone().unwrap().iter().map(|cf|
+                        CustomField {
+                            label_name: cf.label_name.clone(),
+                            value: cf.value.clone(),
+                        }
+                    ).collect())
+                } else {
+                    None
+                }
+            },
+            Action::ZTask(task) => {
+                if task.0.custom_fields.is_some() {
+                    Some(task.0.custom_fields.clone().unwrap().iter().map(|cf|
+                    CustomField {
+                        label_name: cf.label_name.clone(),
+                        value: cf.value.clone(),
+                    }
+                ).collect())
+                } else {
+                    None
+                }
+            },
         }
     }
 
@@ -47,12 +91,12 @@ impl Action {
                 "[{}] {},{},{}",
                 issue.0.key,
                 issue.0.title,
-                issue.0.classification.classification_type,
+                issue.0.issue_type(),
                 issue.0.reported_person
             ),
             Action::ZTask(task) => format!(
-                "[{}] {},DevelopmentTask,{}",
-                task.0.key, task.0.name, task.0.created_person
+                "[{}] {},{},{}",
+                task.0.key, task.0.name, task.0.issue_type(), task.0.created_person
             ),
         }
     }
@@ -63,12 +107,12 @@ impl Action {
                 "| [{}] {} | {} | {} |",
                 issue.0.key,
                 issue.0.title,
-                issue.0.classification.classification_type,
+                issue.0.issue_type(),
                 issue.0.reported_person
             ),
             Action::ZTask(task) => format!(
-                "| [{}] {} | DevelopmentTask | {} |",
-                task.0.key, task.0.name, task.0.created_person
+                "| [{}] {} | {} | {} |",
+                task.0.key, task.0.name, task.0.issue_type(), task.0.created_person
             ),
         }
     }
@@ -117,13 +161,11 @@ pub fn zh_client(project_id: i64, config: &Config) -> Result<Rc<ZohoClient>> {
     Ok(client)
 }
 
-pub fn classify_bugs(issues: IssueList) -> ClassifiedActions {
-    let bugs = issues.bugs;
-    let buglist: Vec<Issue> = bugs.into_iter().filter(|bug| bug.is_closed()).collect();
+pub fn classify_actions(issues: Vec<Action>) -> ClassifiedActions {
     let mut client_list: ClassifiedActions = ClassifiedActions::new();
 
-    for bug in buglist {
-        if let (true, &Some(ref cfs)) = (bug.has_client(), &bug.0.customfields) {
+    for issue in issues {
+        if let (true, Some(cfs)) = (issue.has_client(), issue.custom_fields()) {
             let clients: Vec<String> = cfs
                 .into_iter()
                 .filter(|cf| cf.label_name == "From a client:")
@@ -136,46 +178,17 @@ pub fn classify_bugs(issues: IssueList) -> ClassifiedActions {
 
             client_list.client_bugs.push(ClientBug {
                 clients: clients,
-                bug: Action::ZIssue(bug.clone()),
+                bug: issue.clone(),
             });
         };
 
-        if bug.is_feature() {
-            client_list.features.push(Action::ZIssue(bug.clone()))
+        if issue.is_feature() {
+            client_list.features.push(issue.clone())
         };
 
-        if !bug.has_client() && !bug.is_feature() {
-            client_list.others.push(Action::ZIssue(bug.clone()))
+        if !issue.has_client() && !issue.is_feature() {
+            client_list.others.push(issue.clone())
         };
-    }
-
-    client_list
-}
-
-pub fn classify_tasks(task_list: TaskList) -> ClassifiedActions {
-    let tasks = task_list.tasks;
-    let tasklist: Vec<Task> = tasks.into_iter().filter(|task| task.closed_tag()).collect();
-    let mut client_list: ClassifiedActions = ClassifiedActions::new();
-
-    for task in tasklist {
-        if let (true, &Some(ref cfs)) = (task.has_client(), &task.0.custom_fields) {
-            let clients: Vec<String> = cfs
-                .into_iter()
-                .filter(|cf| cf.label_name == "From a client:")
-                .nth(0)
-                .expect("Somehow a task with clients and custom fields had no client custom field")
-                .value
-                .split(",")
-                .map(|s| s.to_owned())
-                .collect();
-
-            client_list.client_bugs.push(ClientBug {
-                clients: clients,
-                bug: Action::ZTask(task.clone()),
-            });
-        }
-
-        client_list.features.push(Action::ZTask(task.clone()));
     }
 
     client_list

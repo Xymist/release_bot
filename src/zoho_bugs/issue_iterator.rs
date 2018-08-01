@@ -7,7 +7,7 @@ use zohohorrorshow::{
 };
 
 #[derive(Debug, Clone)]
-pub struct TicketIterator {
+pub struct IssueIterator {
     pub items: <Vec<Issue> as IntoIterator>::IntoIter,
     pub last_full: bool,
     pub milestones: Vec<String>,
@@ -15,9 +15,9 @@ pub struct TicketIterator {
     pub start_index: usize,
 }
 
-impl TicketIterator {
-    pub fn new(client: &Rc<ZohoClient>, milestone_ids: Vec<String>) -> TicketIterator {
-        TicketIterator {
+impl IssueIterator {
+    pub fn new(client: &Rc<ZohoClient>, milestone_ids: Vec<String>) -> IssueIterator {
+        IssueIterator {
             items: Vec::new().into_iter(),
             last_full: true,
             milestones: milestone_ids,
@@ -61,7 +61,7 @@ impl TicketIterator {
     }
 }
 
-impl Iterator for TicketIterator {
+impl Iterator for IssueIterator {
     type Item = Result<Issue>;
 
     fn next(&mut self) -> Option<Self::Item> {

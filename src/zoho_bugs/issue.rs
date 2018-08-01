@@ -1,17 +1,11 @@
 use errors::*;
 use std::rc::Rc;
-use zoho_bugs::ticket_iterator::TicketIterator;
+use zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
+use zoho_bugs::issue_iterator::IssueIterator;
 use zohohorrorshow::{
     client::ZohoClient,
     models::{bug, milestone},
 };
-
-const CLOSED_STATUSES: &[&str] = &["Tested on Staging", "Tested on Live", "Closed"];
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct IssueList {
-    pub bugs: Vec<Issue>,
-}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Issue(pub bug::Bug);
@@ -30,7 +24,7 @@ impl Issue {
     }
 }
 
-pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<IssueList> {
+pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Vec<Action>> {
     let mut ms_records = milestones
         .into_iter()
         .map(|m| {
@@ -52,20 +46,14 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Is
         .map(|m| m.unwrap().id.to_string())
         .collect();
 
-    let buglist: Vec<Issue> = TicketIterator::new(&client.clone(), ms_ids)
+    let buglist: Vec<Action> = IssueIterator::new(&client.clone(), ms_ids)
         .filter_map(Result::ok)
         .peekable()
         .filter(|bug| bug.is_closed())
+        .map(Action::ZIssue)
         .collect();
 
-    Ok(IssueList { bugs: buglist })
-}
-
-pub trait MDCustomFilters {
-    fn has_client(&self) -> bool;
-    fn is_feature(&self) -> bool;
-    fn issue_type(&self) -> &str;
-    fn closed_tag(&self) -> bool;
+    Ok(buglist)
 }
 
 impl MDCustomFilters for bug::Bug {
@@ -90,5 +78,11 @@ impl MDCustomFilters for bug::Bug {
         CLOSED_STATUSES
             .iter()
             .any(|x| *x == self.status.classification_type)
+    }
+
+    // Bugs from a milestone (as we use them here) do not have a milestone
+    // attached when they are provided from the API.
+    fn milestone(&self) -> String {
+        unimplemented!()
     }
 }

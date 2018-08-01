@@ -1,17 +1,11 @@
 use errors::*;
 use std::rc::Rc;
+use zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
 use zoho_bugs::task_iterator::TaskIterator;
 use zohohorrorshow::{
     client::ZohoClient,
     models::{task, tasklist},
 };
-
-const CLOSED_STATUSES: &[&str] = &["Tested On Staging", "Tested on Live", "Closed"];
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct TaskList {
-    pub tasks: Vec<Task>,
-}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Task(pub task::Task);
@@ -26,11 +20,11 @@ impl Task {
     }
 
     pub fn is_feature(&self) -> bool {
-        true
+        self.0.is_feature()
     }
 }
 
-pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<TaskList> {
+pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Vec<Action>> {
     let tl_ids: Vec<i64> = tasklist::tasklists(client)
         .flag("internal")
         .fetch()
@@ -40,7 +34,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
         .map(|tl| tl.id)
         .collect();
 
-    let closed_tasks: Vec<Task> = TaskIterator::new(&client.clone()).filter_map(Result::ok)
+    let closed_tasks: Vec<Action> = TaskIterator::new(&client.clone()).filter_map(Result::ok)
         .peekable()
         .filter(|t| t.closed_tag())
         .filter(|t| {
@@ -48,17 +42,10 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
                 || tl_ids.contains(&t.0.tasklist_id)
                 || tl_ids.contains(&t.0.clone().tasklist.unwrap_or_default().id)
         })
+        .map(Action::ZTask)
         .collect();
 
-    Ok(TaskList {
-        tasks: closed_tasks,
-    })
-}
-
-pub trait MDCustomFilters {
-    fn closed_tag(&self) -> bool;
-    fn has_client(&self) -> bool;
-    fn milestone(&self) -> String;
+    Ok(closed_tasks)
 }
 
 impl MDCustomFilters for task::Task {
@@ -88,5 +75,13 @@ impl MDCustomFilters for task::Task {
             }
         }
         return "".to_owned();
+    }
+
+    fn issue_type(&self) -> &str {
+        "DevelopmentTask"
+    }
+
+    fn is_feature(&self) -> bool {
+        true
     }
 }
