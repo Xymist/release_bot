@@ -27,7 +27,7 @@ impl Action {
     // pub fn is_feature(&self) -> bool {
     //     match self {
     //         Action::ZIssue(issue) => issue.is_feature(),
-    //         Action::ZTask(_) => true,
+    //         Action::ZTask(task) => task.is_feature(),
     //     }
     // }
 
@@ -73,7 +73,7 @@ impl Action {
 
 pub struct ClientBug {
     clients: Vec<String>,
-    bug: Action
+    bug: Action,
 }
 
 pub struct ClassifiedActions {
@@ -92,7 +92,8 @@ impl ClassifiedActions {
     }
 
     pub fn sort(mut self) -> Self {
-        self.client_bugs.sort_by(|a, b| a.clients.len().cmp(&b.clients.len()));
+        self.client_bugs
+            .sort_by(|a, b| a.clients.len().cmp(&b.clients.len()));
         self.features.sort_by(|a, b| a.name().cmp(&b.name()));
         self.others.sort_by(|a, b| a.name().cmp(&b.name()));
 
@@ -120,7 +121,8 @@ pub fn classify_bugs(issues: IssueList) -> ClassifiedActions {
 
     for bug in buglist {
         if let (true, &Some(ref cfs)) = (bug.has_client(), &bug.0.customfields) {
-            let clients: Vec<String> = cfs.into_iter()
+            let clients: Vec<String> = cfs
+                .into_iter()
                 .filter(|cf| cf.label_name == "From a client:")
                 .nth(0)
                 .expect("Somehow a task with clients and custom fields had no client custom field")
@@ -131,7 +133,7 @@ pub fn classify_bugs(issues: IssueList) -> ClassifiedActions {
 
             client_list.client_bugs.push(ClientBug {
                 clients: clients,
-                bug: Action::ZIssue(bug.clone())
+                bug: Action::ZIssue(bug.clone()),
             });
         };
 
@@ -154,7 +156,8 @@ pub fn classify_tasks(task_list: TaskList) -> ClassifiedActions {
 
     for task in tasklist {
         if let (true, &Some(ref cfs)) = (task.has_client(), &task.0.custom_fields) {
-            let clients: Vec<String> = cfs.into_iter()
+            let clients: Vec<String> = cfs
+                .into_iter()
                 .filter(|cf| cf.label_name == "From a client:")
                 .nth(0)
                 .expect("Somehow a task with clients and custom fields had no client custom field")
@@ -165,7 +168,7 @@ pub fn classify_tasks(task_list: TaskList) -> ClassifiedActions {
 
             client_list.client_bugs.push(ClientBug {
                 clients: clients,
-                bug: Action::ZTask(task.clone())
+                bug: Action::ZTask(task.clone()),
             });
         }
 
@@ -220,7 +223,11 @@ pub fn write_actions_md(client_list: ClassifiedActions) -> String {
     );
 
     for client_bug in sorted_tickets.client_bugs.iter() {
-        output.push_str(&format!("\n{} {} |", client_bug.bug.display_md(), client_bug.clients.join(";")))
+        output.push_str(&format!(
+            "\n{} {} |",
+            client_bug.bug.display_md(),
+            client_bug.clients.join(";")
+        ))
     }
 
     output.push_str(

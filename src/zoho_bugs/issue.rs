@@ -65,8 +65,7 @@ impl TicketIterator {
                     .map(|s| &**s)
                     .collect::<Vec<&str>>()
                     .as_slice(),
-            )
-            .sort_column("last_modified_time")
+            ).sort_column("last_modified_time")
             .sort_order("descending")
             .index(&format!("{}", self.start_index))
             .fetch()?;
@@ -110,8 +109,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Is
                 .filter(|ms| m == ms.name)
                 .collect::<Vec<milestone::Milestone>>()
                 .pop()
-        })
-        .collect::<Vec<Option<milestone::Milestone>>>();
+        }).collect::<Vec<Option<milestone::Milestone>>>();
 
     ms_records.retain(|om| if let Some(ref _m) = *om { true } else { false });
 

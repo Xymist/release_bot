@@ -23,27 +23,23 @@ impl Task {
     pub fn has_client(&self) -> bool {
         self.0.has_client()
     }
+
+    pub fn is_feature(&self) -> bool {
+        true
+    }
 }
 
 pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<TaskList> {
-    let mut ms_records = milestones
-        .iter()
-        .map(|m| {
-            milestone::milestones(client)
-                .status("notcompleted")
-                .display_type("all")
-                .fetch()
-                .expect("Failed to retrieve list of tasks")
-                .into_iter()
-                .filter(|ms| m == &ms.name)
-                .collect::<Vec<milestone::Milestone>>()
-                .pop()
-        })
-        .collect::<Vec<Option<milestone::Milestone>>>();
+    let ms_ids: Vec<i64> = milestone::milestones(client)
+        .status("notcompleted")
+        .display_type("all")
+        .fetch()
+        .expect("Failed to retrieve list of milestones")
+        .into_iter()
+        .filter(|ms| milestones.contains(&ms.name))
+        .map(|m| m.id)
+        .collect();
 
-    ms_records.retain(|om| if let Some(ref _m) = *om { true } else { false });
-
-    let ms_ids: Vec<i64> = ms_records.into_iter().map(|m| m.unwrap().id).collect();
     let mut tasklists = tasklist::tasklists(client).flag("internal").fetch()?;
     let task_ids: Vec<i64> = tasklists
         .iter()
@@ -56,8 +52,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
                 .into_iter()
                 .filter(|t| t.closed_tag())
                 .map(|t| t.id)
-        })
-        .collect();
+        }).collect();
 
     let tasks: Vec<task::Task> = task_ids
         .iter()
@@ -67,8 +62,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
                 .fetch()
                 .expect(&format!("Failed to fetch task {}", tid))
                 .remove(0)
-        })
-        .collect();
+        }).collect();
 
     tasklists.retain(|t| ms_ids.contains(&t.milestone.id));
     let tl_ids: Vec<i64> = tasklists.into_iter().map(|m| m.id).collect();
@@ -78,8 +72,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ta
             milestones.contains(&t.milestone())
                 || tl_ids.contains(&t.tasklist_id)
                 || tl_ids.contains(&t.clone().tasklist.unwrap_or_default().id)
-        })
-        .map(Task)
+        }).map(Task)
         .collect();
 
     Ok(TaskList {
