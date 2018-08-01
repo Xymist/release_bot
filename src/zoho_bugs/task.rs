@@ -1,8 +1,9 @@
 use errors::*;
 use std::rc::Rc;
+use zoho_bugs::task_iterator::TaskIterator;
 use zohohorrorshow::{
     client::ZohoClient,
-    models::{milestone, task, tasklist},
+    models::{task, tasklist},
 };
 
 const CLOSED_STATUSES: &[&str] = &["Tested On Staging", "Tested on Live", "Closed"];
@@ -30,49 +31,23 @@ impl Task {
 }
 
 pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<TaskList> {
-    let ms_ids: Vec<i64> = milestone::milestones(client)
-        .status("notcompleted")
-        .display_type("all")
+    let tl_ids: Vec<i64> = tasklist::tasklists(client)
+        .flag("internal")
         .fetch()
-        .expect("Failed to retrieve list of milestones")
+        .expect("Failed to fetch Tasklists")
         .into_iter()
-        .filter(|ms| milestones.contains(&ms.name))
-        .map(|m| m.id)
+        .filter(|t| milestones.contains(&t.milestone.name))
+        .map(|tl| tl.id)
         .collect();
 
-    let mut tasklists = tasklist::tasklists(client).flag("internal").fetch()?;
-    let task_ids: Vec<i64> = tasklists
-        .iter()
-        .flat_map(|t| {
-            tasklist::tasklists(client)
-                .by_id(t.id)
-                .tasks()
-                .fetch()
-                .expect(&format!("Failed to fetch tasks for tasklist {}:", t.name))
-                .into_iter()
-                .filter(|t| t.closed_tag())
-                .map(|t| t.id)
-        }).collect();
-
-    let tasks: Vec<task::Task> = task_ids
-        .iter()
-        .map(|tid| {
-            task::tasks(client)
-                .by_id(*tid)
-                .fetch()
-                .expect(&format!("Failed to fetch task {}", tid))
-                .remove(0)
-        }).collect();
-
-    tasklists.retain(|t| ms_ids.contains(&t.milestone.id));
-    let tl_ids: Vec<i64> = tasklists.into_iter().map(|m| m.id).collect();
-    let closed_tasks: Vec<Task> = tasks
-        .into_iter()
+    let closed_tasks: Vec<Task> = TaskIterator::new(&client.clone()).filter_map(Result::ok)
+        .peekable()
+        .filter(|t| t.closed_tag())
         .filter(|t| {
-            milestones.contains(&t.milestone())
-                || tl_ids.contains(&t.tasklist_id)
-                || tl_ids.contains(&t.clone().tasklist.unwrap_or_default().id)
-        }).map(Task)
+            milestones.contains(&t.0.milestone())
+                || tl_ids.contains(&t.0.tasklist_id)
+                || tl_ids.contains(&t.0.clone().tasklist.unwrap_or_default().id)
+        })
         .collect();
 
     Ok(TaskList {
@@ -106,9 +81,10 @@ impl MDCustomFilters for task::Task {
                 return cfs
                     .iter()
                     .filter(|cf| cf.label_name == "Release Milestone")
-                    .map(|cf| cf.value.clone())
-                    .collect::<Vec<String>>()
-                    .join("");
+                    .nth(0)
+                    .expect("Failed to extract Release Milestone")
+                    .value
+                    .clone();
             }
         }
         return "".to_owned();

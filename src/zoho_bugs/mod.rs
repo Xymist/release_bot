@@ -1,10 +1,13 @@
 pub mod issue;
 pub mod task;
+mod ticket_iterator;
+mod task_iterator;
 
 use self::{
     issue::{Issue, IssueList},
     task::{Task, TaskList},
 };
+
 use errors::*;
 use std::rc::Rc;
 use zohohorrorshow::client::ZohoClient;
