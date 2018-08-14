@@ -1,7 +1,7 @@
 use errors::*;
 use std::rc::Rc;
-use zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
 use zoho_bugs::issue_iterator::IssueIterator;
+use zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
 use zohohorrorshow::{
     client::ZohoClient,
     models::{bug, milestone},
@@ -24,9 +24,9 @@ impl Issue {
     }
 }
 
-pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Vec<Action>> {
+pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<Action>> {
     let mut ms_records = milestones
-        .into_iter()
+        .iter()
         .map(|m| {
             milestone::milestones(client)
                 .status("notcompleted")
@@ -34,7 +34,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ve
                 .fetch()
                 .expect("Failed to retrieve milestone list")
                 .into_iter()
-                .filter(|ms| m == ms.name)
+                .filter(|ms| m == &ms.name)
                 .collect::<Vec<milestone::Milestone>>()
                 .pop()
         }).collect::<Vec<Option<milestone::Milestone>>>();

@@ -1,10 +1,7 @@
 use errors::*;
 use issue::Issue;
 use std::rc::Rc;
-use zohohorrorshow::{
-    client::ZohoClient,
-    models::bug,
-};
+use zohohorrorshow::{client::ZohoClient, models::bug};
 
 #[derive(Debug, Clone)]
 pub struct IssueIterator {

@@ -1,19 +1,21 @@
 pub mod issue;
-pub mod task;
 mod issue_iterator;
+pub mod task;
 mod task_iterator;
 
-use self::{
-    issue::Issue,
-    task::Task,
-};
+use self::{issue::Issue, task::Task};
 
 use errors::*;
 use std::rc::Rc;
 use zohohorrorshow::client::ZohoClient;
 use Config;
 
-pub const CLOSED_STATUSES: &[&str] = &["Tested on Staging", "Tested On Staging", "Tested on Live", "Closed"];
+pub const CLOSED_STATUSES: &[&str] = &[
+    "Tested on Staging",
+    "Tested On Staging",
+    "Tested on Live",
+    "Closed",
+];
 
 pub trait MDCustomFilters {
     fn has_client(&self) -> bool;
@@ -60,28 +62,39 @@ impl Action {
         match self {
             Action::ZIssue(issue) => {
                 if issue.0.customfields.is_some() {
-                    Some(issue.0.customfields.clone().unwrap().iter().map(|cf|
-                        CustomField {
-                            label_name: cf.label_name.clone(),
-                            value: cf.value.clone(),
-                        }
-                    ).collect())
+                    Some(
+                        issue
+                            .0
+                            .customfields
+                            .clone()
+                            .unwrap()
+                            .iter()
+                            .map(|cf| CustomField {
+                                label_name: cf.label_name.clone(),
+                                value: cf.value.clone(),
+                            }).collect(),
+                    )
                 } else {
                     None
                 }
-            },
+            }
             Action::ZTask(task) => {
                 if task.0.custom_fields.is_some() {
-                    Some(task.0.custom_fields.clone().unwrap().iter().map(|cf|
-                    CustomField {
-                        label_name: cf.label_name.clone(),
-                        value: cf.value.clone(),
-                    }
-                ).collect())
+                    Some(
+                        task.0
+                            .custom_fields
+                            .clone()
+                            .unwrap()
+                            .iter()
+                            .map(|cf| CustomField {
+                                label_name: cf.label_name.clone(),
+                                value: cf.value.clone(),
+                            }).collect(),
+                    )
                 } else {
                     None
                 }
-            },
+            }
         }
     }
 
@@ -96,7 +109,10 @@ impl Action {
             ),
             Action::ZTask(task) => format!(
                 "[{}] {},{},{}",
-                task.0.key, task.0.name, task.0.issue_type(), task.0.created_person
+                task.0.key,
+                task.0.name,
+                task.0.issue_type(),
+                task.0.created_person
             ),
         }
     }
@@ -112,7 +128,10 @@ impl Action {
             ),
             Action::ZTask(task) => format!(
                 "| [{}] {} | {} | {} |",
-                task.0.key, task.0.name, task.0.issue_type(), task.0.created_person
+                task.0.key,
+                task.0.name,
+                task.0.issue_type(),
+                task.0.created_person
             ),
         }
     }
@@ -144,7 +163,7 @@ impl ClassifiedActions {
         self.features.sort_by(|a, b| a.name().cmp(&b.name()));
         self.others.sort_by(|a, b| a.name().cmp(&b.name()));
 
-        return self;
+        self
     }
 }
 
@@ -172,12 +191,12 @@ pub fn classify_actions(issues: Vec<Action>) -> ClassifiedActions {
                 .nth(0)
                 .expect("Somehow a task with clients and custom fields had no client custom field")
                 .value
-                .split(",")
+                .split(',')
                 .map(|s| s.to_owned())
                 .collect();
 
             client_list.client_bugs.push(ClientBug {
-                clients: clients,
+                clients,
                 bug: issue.clone(),
             });
         };
@@ -208,7 +227,7 @@ pub fn write_actions_csv(client_list: ClassifiedActions) -> String {
     let mut output: String = "".to_owned();
     let sorted_tickets = client_list.sort();
 
-    for client_bug in sorted_tickets.client_bugs.iter() {
+    for client_bug in &sorted_tickets.client_bugs {
         output.push_str(&format!(
             "\n{},{}",
             client_bug.bug.display_csv(),
@@ -226,7 +245,7 @@ pub fn write_actions_csv(client_list: ClassifiedActions) -> String {
         output.push_str(&format!("\n{}", other.display_csv()));
     }
 
-    return output;
+    output
 }
 
 pub fn write_actions_md(client_list: ClassifiedActions) -> String {
@@ -238,7 +257,7 @@ pub fn write_actions_md(client_list: ClassifiedActions) -> String {
         "\n| Ticket Name | Ticket Type | Raised By | Clients |\n| --- | --- | --- | --- |",
     );
 
-    for client_bug in sorted_tickets.client_bugs.iter() {
+    for client_bug in &sorted_tickets.client_bugs {
         output.push_str(&format!(
             "\n{} {} |",
             client_bug.bug.display_md(),
@@ -262,5 +281,5 @@ pub fn write_actions_md(client_list: ClassifiedActions) -> String {
         output.push_str(&format!("\n{}", other.display_md()));
     }
 
-    return output;
+    output
 }

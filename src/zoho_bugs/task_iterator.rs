@@ -1,10 +1,7 @@
 use errors::*;
-use task::Task;
 use std::rc::Rc;
-use zohohorrorshow::{
-    client::ZohoClient,
-    models::task,
-};
+use task::Task;
+use zohohorrorshow::{client::ZohoClient, models::task};
 
 #[derive(Debug, Clone)]
 pub struct TaskIterator {

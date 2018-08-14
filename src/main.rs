@@ -25,8 +25,7 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use zoho_bugs::{
-    classify_actions, issue, merge_actions, task, write_actions_csv, write_actions_md,
-    zh_client,
+    classify_actions, issue, merge_actions, task, write_actions_csv, write_actions_md, zh_client,
 };
 
 const PREAMBLE: &str = "Hi everyone,\n
@@ -49,7 +48,7 @@ fn format_preamble(config: &Config) -> String {
         "\nThis includes development of the {} milestone(s).\n",
         milestones
     ));
-    return output;
+    output
 }
 
 fn format_projects_as_md(projects: Vec<Project>, config: &Config) -> Result<String> {
@@ -61,8 +60,8 @@ fn format_projects_as_md(projects: Vec<Project>, config: &Config) -> Result<Stri
         ));
 
         let client = zh_client(project.id.parse::<i64>()?, config)?;
-        let issues = issue::build_list(&client, project.milestones.clone())?;
-        let tasks = task::build_list(&client, project.milestones)?;
+        let issues = issue::build_list(&client, &project.milestones)?;
+        let tasks = task::build_list(&client, &project.milestones)?;
         output.push_str(&write_actions_md(merge_actions(
             classify_actions(issues),
             classify_actions(tasks),
@@ -76,7 +75,7 @@ fn format_repos_as_md(repos: Vec<Repo>) -> String {
     for repo in repos {
         output.push_str(&format_repo(repo));
     }
-    return output;
+    output
 }
 
 fn format_repos_as_csv(repos: Vec<Repo>) -> String {
@@ -86,21 +85,23 @@ fn format_repos_as_csv(repos: Vec<Repo>) -> String {
             output.push_str(&format!("\n{}", csv));
         }
     }
-    return output;
+    output
 }
 
 fn format_projects_as_csv(projects: Vec<Project>, config: &Config) -> Result<String> {
     let mut output: String = "Ticket Name,Ticket Type,Raised By,Clients".to_owned();
     for project in projects {
         let client = zh_client(project.id.parse::<i64>()?, config)?;
-        let issues = issue::build_list(&client, project.milestones.clone())?;
-        let tasks = task::build_list(&client, project.milestones)?;
-        output.push_str(&format!(
-            "{}",
-            write_actions_csv(merge_actions(classify_actions(issues), classify_actions(tasks)))
-        ));
+        let issues = issue::build_list(&client, &project.milestones)?;
+        let tasks = task::build_list(&client, &project.milestones)?;
+        output.push_str(
+            &write_actions_csv(merge_actions(
+                classify_actions(issues),
+                classify_actions(tasks),
+            )).to_string(),
+        );
     }
-    return Ok(output);
+    Ok(output)
 }
 
 fn markdown_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Result<()> {

@@ -1,7 +1,7 @@
 use errors::*;
 use std::rc::Rc;
-use zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
 use zoho_bugs::task_iterator::TaskIterator;
+use zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
 use zohohorrorshow::{
     client::ZohoClient,
     models::{task, tasklist},
@@ -24,7 +24,7 @@ impl Task {
     }
 }
 
-pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Vec<Action>> {
+pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<Action>> {
     let tl_ids: Vec<i64> = tasklist::tasklists(client)
         .flag("internal")
         .fetch()
@@ -34,15 +34,15 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: Vec<String>) -> Result<Ve
         .map(|tl| tl.id)
         .collect();
 
-    let closed_tasks: Vec<Action> = TaskIterator::new(&client.clone()).filter_map(Result::ok)
+    let closed_tasks: Vec<Action> = TaskIterator::new(&client.clone())
+        .filter_map(Result::ok)
         .peekable()
         .filter(|t| t.closed_tag())
         .filter(|t| {
             milestones.contains(&t.0.milestone())
                 || tl_ids.contains(&t.0.tasklist_id)
                 || tl_ids.contains(&t.0.clone().tasklist.unwrap_or_default().id)
-        })
-        .map(Action::ZTask)
+        }).map(Action::ZTask)
         .collect();
 
     Ok(closed_tasks)
@@ -74,7 +74,7 @@ impl MDCustomFilters for task::Task {
                     .clone();
             }
         }
-        return "".to_owned();
+        "".to_owned()
     }
 
     fn issue_type(&self) -> &str {

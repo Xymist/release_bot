@@ -27,25 +27,26 @@ pub fn format_repo(repo: Repo) -> String {
             }
         }
     }
-    return output;
+    output
 }
 
 pub fn csv_repo(repo: Repo) -> Option<String> {
-    if repo.pulls.is_none() {
-        return None;
-    }
-    let repo_name = repo.name.clone();
-    let sorted_contributors = extract_and_sort_contributors(repo);
-    let mut csv_lines: Vec<String> = vec![];
-    for (contributor, cont_pulls) in sorted_contributors {
-        // This .rev() corrects the GitHub default order and gives us
-        // a chronological record
-        for cont_pull in cont_pulls.into_iter().rev() {
-            csv_lines.push(format!("{},{},{}", repo_name, cont_pull, contributor));
+    if repo.pulls.is_some() {
+        let repo_name = repo.name.clone();
+        let sorted_contributors = extract_and_sort_contributors(repo);
+        let mut csv_lines: Vec<String> = vec![];
+        for (contributor, cont_pulls) in sorted_contributors {
+            // This .rev() corrects the GitHub default order and gives us
+            // a chronological record
+            for cont_pull in cont_pulls.into_iter().rev() {
+                csv_lines.push(format!("{},{},{}", repo_name, cont_pull, contributor));
+            }
         }
+        let csv = csv_lines.join("\n");
+        Some(csv)
+    } else {
+        None
     }
-    let csv = csv_lines.join("\n");
-    Some(csv)
 }
 
 fn extract_and_sort_contributors(repo: Repo) -> Vec<(String, Vec<Pull>)> {
@@ -68,5 +69,5 @@ fn extract_and_sort_contributors(repo: Repo) -> Vec<(String, Vec<Pull>)> {
     // frequent contributors at the bottom, least at the top
     let mut sortable: Vec<(String, Vec<Pull>)> = contributors.into_iter().collect();
     sortable.sort_by(|a, b| a.1.len().cmp(&b.1.len()));
-    return sortable;
+    sortable
 }
