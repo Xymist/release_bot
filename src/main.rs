@@ -1,3 +1,6 @@
+//! This crate is a documentation generation crate for single releases of Market Dojo; it accesses both
+//! GitHub and the Zoho Projects API to retrieve data.
+
 #![feature(type_ascription)]
 
 extern crate chrono;
@@ -28,6 +31,8 @@ use zoho_bugs::{
     classify_actions, issue, merge_actions, task, write_actions_csv, write_actions_md, zh_client,
 };
 
+// Preamble for generated email or document; this might be removed in future as it is too specific
+// to a single function of the crate.
 const PREAMBLE: &str = "Hi everyone,\n
 We have released a new version of Market Dojo to live.\n
 Please let your customers know if they are listed and you feel the fixes will be relevant to them.

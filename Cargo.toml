@@ -1,8 +1,12 @@
 [package]
 name = "release_bot"
-version = "0.6.5"
+version = "0.6.5" #:version
 authors = ["Xymist <james@jamieduerden.me>"]
 readme = "README.md"
+description = "Application for generating Market Dojo release notes."
+homepage = "https://github.com/Xymist/release_bot"
+repository = "https://github.com/Xymist/release_bot"
+license = "MIT"
 
 [dependencies]
 clap = "2.26"

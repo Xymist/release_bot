@@ -10,6 +10,9 @@ use std::rc::Rc;
 use zohohorrorshow::client::ZohoClient;
 use Config;
 
+// Flagging issues and tasks as closed uses custom fields, which are not necessarily consistently
+// named. This should be an exhaustive list of those statuses which indicate that QA is happy with
+// the ticket as it stands.
 pub const CLOSED_STATUSES: &[&str] = &[
     "Tested on Staging",
     "Tested On Staging",
@@ -17,6 +20,9 @@ pub const CLOSED_STATUSES: &[&str] = &[
     "Closed",
 ];
 
+
+// Filters which are required for this application but which ZohoHorrorshow does not provide since
+// they are dependent on factors defined in MD's Zoho Project settings
 pub trait MDCustomFilters {
     fn has_client(&self) -> bool;
     fn is_feature(&self) -> bool;
@@ -25,6 +31,8 @@ pub trait MDCustomFilters {
     fn milestone(&self) -> String;
 }
 
+// Issues and Tasks are the two possible entities within the Zoho Project on which a developer
+// may take action
 #[derive(Debug, Clone)]
 pub enum Action {
     ZIssue(Issue),
@@ -37,6 +45,8 @@ pub struct CustomField {
 }
 
 impl Action {
+    // Despite being part of the same system, [`Issue`]s are defined by Zoho as having a title, whilst
+    // [`Task`]s are defined as having a name. They serve the same purpose so this is abstracted away.
     pub fn name(&self) -> String {
         match self {
             Action::ZIssue(issue) => issue.0.title.clone(),
@@ -44,6 +54,8 @@ impl Action {
         }
     }
 
+    // Features are those tickets or tasks which have been flagged as either new features or
+    // enhancements to the platform.
     pub fn is_feature(&self) -> bool {
         match self {
             Action::ZIssue(issue) => issue.is_feature(),
@@ -51,6 +63,8 @@ impl Action {
         }
     }
 
+    // The custom field 'From a client(:)?' indicates whether an action was requested by an
+    // existing paying user of Market Dojo.
     pub fn has_client(&self) -> bool {
         match self {
             Action::ZIssue(issue) => issue.has_client(),
@@ -58,6 +72,8 @@ impl Action {
         }
     }
 
+    // This is largely necessary because an issue has custom_fields while a task has customfields,
+    // according to the Zoho API. We abstract this and make it consistent.
     pub fn custom_fields(&self) -> Option<Vec<CustomField>> {
         match self {
             Action::ZIssue(issue) => {
@@ -98,6 +114,7 @@ impl Action {
         }
     }
 
+    // Format the relevant parts of an action into a comma-delimited string, for writing to a .csv
     pub fn display_csv(&self) -> String {
         match self {
             Action::ZIssue(issue) => format!(
@@ -117,6 +134,8 @@ impl Action {
         }
     }
 
+    // Format the relevant parts of an action into a pipe-delimited string, for writing to a
+    // Markdown document; this format is intended to produce a table.
     pub fn display_md(&self) -> String {
         match self {
             Action::ZIssue(issue) => format!(
@@ -137,11 +156,18 @@ impl Action {
     }
 }
 
+// Holds a bug (either a Task or an Issue) and the collection of clients who have raised or
+// otherwise requested action on that bug.
 pub struct ClientBug {
     clients: Vec<String>,
     bug: Action,
 }
 
+// Container for actions, separated into the three categories which are reported on:
+// client_bugs: actions which have clients associated,
+// features: actions which are either new features or enhancements to the platform,
+// others: actions which are neither features nor associated with a client, generally bugs or QA
+// concerns but also most infrastructure changes.
 pub struct ClassifiedActions {
     client_bugs: Vec<ClientBug>,
     features: Vec<Action>,
@@ -149,6 +175,7 @@ pub struct ClassifiedActions {
 }
 
 impl ClassifiedActions {
+    // Generator for ClassifiedActions; assumes everything is empty to begin with
     pub fn new() -> ClassifiedActions {
         ClassifiedActions {
             client_bugs: vec![],
@@ -157,6 +184,9 @@ impl ClassifiedActions {
         }
     }
 
+    // Somewhat arbitrarily, this ensures that the actions are sorted consistently. Client bugs
+    // are sorted by the number of clients associated, while features and other actions are
+    // merely sorted alphabetically.
     pub fn sort(mut self) -> Self {
         self.client_bugs
             .sort_by(|a, b| a.clients.len().cmp(&b.clients.len()));
@@ -167,6 +197,8 @@ impl ClassifiedActions {
     }
 }
 
+// Utilises the configuration defined in config.yml to generate a new ZohoClient, for interacting
+// with ZohoHorrorshow
 pub fn zh_client(project_id: i64, config: &Config) -> Result<Rc<ZohoClient>> {
     let mut client = ZohoClient::new(
         &config.zoho_authtoken,
@@ -177,9 +209,11 @@ pub fn zh_client(project_id: i64, config: &Config) -> Result<Rc<ZohoClient>> {
     if let Some(cl) = Rc::get_mut(&mut client) {
         cl.project(project_id);
     };
+
     Ok(client)
 }
 
+// Given a Vec of either Issues or Tasks, partition them by type
 pub fn classify_actions(issues: Vec<Action>) -> ClassifiedActions {
     let mut client_list: ClassifiedActions = ClassifiedActions::new();
 
@@ -213,6 +247,8 @@ pub fn classify_actions(issues: Vec<Action>) -> ClassifiedActions {
     client_list
 }
 
+// Collects multiple sets of actions, generally one of Tasks and one of Issues, collect their
+// contents into a single set of ClassifiedActions.
 pub fn merge_actions(
     mut issue_list: ClassifiedActions,
     mut task_list: ClassifiedActions,
@@ -223,6 +259,8 @@ pub fn merge_actions(
     issue_list
 }
 
+// Assembles a string representing the contents of a CSV file reporting on the contents of a
+// set of ClassifiedActions, for later printing or display.
 pub fn write_actions_csv(client_list: ClassifiedActions) -> String {
     let mut output: String = "".to_owned();
     let sorted_tickets = client_list.sort();
@@ -248,6 +286,8 @@ pub fn write_actions_csv(client_list: ClassifiedActions) -> String {
     output
 }
 
+// Assembles a string representing the contents of a Markdown file reporting on the contents of a
+// set of ClassifiedActions, for later printing or display.
 pub fn write_actions_md(client_list: ClassifiedActions) -> String {
     let sorted_tickets = client_list.sort();
 
