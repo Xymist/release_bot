@@ -58,7 +58,7 @@ impl MDCustomFilters for task::Task {
             return false;
         }
         let cfs = self.custom_fields.as_ref().unwrap();
-        cfs.iter().any(|cf| cf.label_name == "From a Client")
+        cfs.iter().any(|cf| cf.label_name.to_lowercase().contains("from a client"))
     }
 
     fn milestone(&self) -> String {

@@ -221,7 +221,7 @@ pub fn classify_actions(issues: Vec<Action>) -> ClassifiedActions {
         if let (true, Some(cfs)) = (issue.has_client(), issue.custom_fields()) {
             let clients: Vec<String> = cfs
                 .into_iter()
-                .filter(|cf| cf.label_name == "From a client:")
+                .filter(|cf| cf.label_name.to_lowercase().contains("from a client"))
                 .nth(0)
                 .expect("Somehow a task with clients and custom fields had no client custom field")
                 .value

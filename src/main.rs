@@ -1,8 +1,6 @@
 //! This crate is a documentation generation crate for single releases of Market Dojo; it accesses both
 //! GitHub and the Zoho Projects API to retrieve data.
 
-#![feature(type_ascription)]
-
 extern crate chrono;
 #[macro_use]
 extern crate error_chain;

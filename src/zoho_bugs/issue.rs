@@ -62,7 +62,7 @@ impl MDCustomFilters for bug::Bug {
             return false;
         }
         let cfs = self.customfields.as_ref().unwrap();
-        cfs.iter().any(|cf| cf.label_name == "From a client:")
+        cfs.iter().any(|cf| cf.label_name.to_lowercase().contains("from a client"))
     }
 
     fn is_feature(&self) -> bool {
