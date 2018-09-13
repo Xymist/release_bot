@@ -34,7 +34,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<
                 .fetch()
                 .expect("Failed to retrieve milestone list")
                 .into_iter()
-                .find(|ms| m == &ms.name.trim());
+                .find(|ms| m == ms.name.trim());
 
             match p_m {
                 Some(n) => Some(n.id.to_string()),
