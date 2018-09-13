@@ -13,13 +13,7 @@ use Config;
 // Flagging issues and tasks as closed uses custom fields, which are not necessarily consistently
 // named. This should be an exhaustive list of those statuses which indicate that QA is happy with
 // the ticket as it stands.
-pub const CLOSED_STATUSES: &[&str] = &[
-    "Tested on Staging",
-    "Tested On Staging",
-    "Tested on Live",
-    "Closed",
-];
-
+pub const CLOSED_STATUSES: &[&str] = &["tested on staging", "tested on live", "closed"];
 
 // Filters which are required for this application but which ZohoHorrorshow does not provide since
 // they are dependent on factors defined in MD's Zoho Project settings
@@ -88,7 +82,8 @@ impl Action {
                             .map(|cf| CustomField {
                                 label_name: cf.label_name.clone(),
                                 value: cf.value.clone(),
-                            }).collect(),
+                            })
+                            .collect(),
                     )
                 } else {
                     None
@@ -105,7 +100,8 @@ impl Action {
                             .map(|cf| CustomField {
                                 label_name: cf.label_name.clone(),
                                 value: cf.value.clone(),
-                            }).collect(),
+                            })
+                            .collect(),
                     )
                 } else {
                     None
@@ -221,8 +217,7 @@ pub fn classify_actions(issues: Vec<Action>) -> ClassifiedActions {
         if let (true, Some(cfs)) = (issue.has_client(), issue.custom_fields()) {
             let clients: Vec<String> = cfs
                 .into_iter()
-                .filter(|cf| cf.label_name.to_lowercase().contains("from a client"))
-                .nth(0)
+                .find(|cf| cf.label_name.to_lowercase().contains("from a client"))
                 .expect("Somehow a task with clients and custom fields had no client custom field")
                 .value
                 .split(',')

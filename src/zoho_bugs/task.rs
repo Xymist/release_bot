@@ -30,8 +30,12 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<
         .fetch()
         .expect("Failed to fetch Tasklists")
         .into_iter()
-        .filter(|t| milestones.contains(&t.milestone.name))
-        .map(|tl| tl.id)
+        .filter_map(|t| {
+            if milestones.contains(&t.milestone.name.trim().to_owned()) {
+                return Some(t.id)
+            }
+            None
+        })
         .collect();
 
     let closed_tasks: Vec<Action> = TaskIterator::new(&client.clone())
@@ -39,10 +43,11 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<
         .peekable()
         .filter(|t| t.closed_tag())
         .filter(|t| {
-            milestones.contains(&t.0.milestone())
+            milestones.contains(&t.0.milestone().trim().to_owned())
                 || tl_ids.contains(&t.0.tasklist_id)
                 || tl_ids.contains(&t.0.clone().tasklist.unwrap_or_default().id)
-        }).map(Action::ZTask)
+        })
+        .map(Action::ZTask)
         .collect();
 
     Ok(closed_tasks)
@@ -50,7 +55,9 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<
 
 impl MDCustomFilters for task::Task {
     fn closed_tag(&self) -> bool {
-        CLOSED_STATUSES.iter().any(|x| *x == self.status.name)
+        CLOSED_STATUSES
+            .iter()
+            .any(|x| *x == self.status.name.to_lowercase().trim())
     }
 
     fn has_client(&self) -> bool {
@@ -58,7 +65,8 @@ impl MDCustomFilters for task::Task {
             return false;
         }
         let cfs = self.custom_fields.as_ref().unwrap();
-        cfs.iter().any(|cf| cf.label_name.to_lowercase().contains("from a client"))
+        cfs.iter()
+            .any(|cf| cf.label_name.to_lowercase().contains("from a client"))
     }
 
     fn milestone(&self) -> String {

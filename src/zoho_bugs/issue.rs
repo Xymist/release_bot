@@ -25,23 +25,22 @@ impl Issue {
 }
 
 pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<Action>> {
-    let mut ms_records = milestones
+    let ms_ids: Vec<String> = milestones
         .iter()
-        .map(|m| {
-            milestone::milestones(client)
+        .filter_map(|m| {
+            let p_m = milestone::milestones(client)
                 .status("notcompleted")
                 .display_type("all")
                 .fetch()
                 .expect("Failed to retrieve milestone list")
                 .into_iter()
-                .find(|ms| m == &ms.name)
-        }).collect::<Vec<Option<milestone::Milestone>>>();
+                .find(|ms| m == &ms.name.trim());
 
-    ms_records.retain(|om| if let Some(ref _m) = *om { true } else { false });
-
-    let ms_ids: Vec<String> = ms_records
-        .into_iter()
-        .map(|m| m.unwrap().id.to_string())
+            match p_m {
+                Some(n) => Some(n.id.to_string()),
+                None => None
+            }
+        })
         .collect();
 
     let buglist: Vec<Action> = IssueIterator::new(&client.clone(), ms_ids)
@@ -60,7 +59,8 @@ impl MDCustomFilters for bug::Bug {
             return false;
         }
         let cfs = self.customfields.as_ref().unwrap();
-        cfs.iter().any(|cf| cf.label_name.to_lowercase().contains("from a client"))
+        cfs.iter()
+            .any(|cf| cf.label_name.to_lowercase().contains("from a client"))
     }
 
     fn is_feature(&self) -> bool {
@@ -75,7 +75,7 @@ impl MDCustomFilters for bug::Bug {
     fn closed_tag(&self) -> bool {
         CLOSED_STATUSES
             .iter()
-            .any(|x| *x == self.status.classification_type)
+            .any(|x| *x == self.status.classification_type.to_lowercase().trim())
     }
 
     // Bugs from a milestone (as we use them here) do not have a milestone

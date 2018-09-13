@@ -39,7 +39,8 @@ impl IssueIterator {
                     .map(|s| &**s)
                     .collect::<Vec<&str>>()
                     .as_slice(),
-            ).sort_column("last_modified_time")
+            )
+            .sort_column("last_modified_time")
             .sort_order("descending")
             .index(&format!("{}", self.start_index))
             .fetch()?;
