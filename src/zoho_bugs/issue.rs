@@ -34,9 +34,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<
                 .fetch()
                 .expect("Failed to retrieve milestone list")
                 .into_iter()
-                .filter(|ms| m == &ms.name)
-                .collect::<Vec<milestone::Milestone>>()
-                .pop()
+                .find(|ms| m == &ms.name)
         }).collect::<Vec<Option<milestone::Milestone>>>();
 
     ms_records.retain(|om| if let Some(ref _m) = *om { true } else { false });

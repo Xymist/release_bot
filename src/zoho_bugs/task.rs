@@ -67,8 +67,7 @@ impl MDCustomFilters for task::Task {
             if cfs.iter().any(|cf| cf.label_name == "Release Milestone") {
                 return cfs
                     .iter()
-                    .filter(|cf| cf.label_name == "Release Milestone")
-                    .nth(0)
+                    .find(|cf| cf.label_name == "Release Milestone")
                     .expect("Failed to extract Release Milestone")
                     .value
                     .clone();
