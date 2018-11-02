@@ -63,8 +63,8 @@ fn format_projects_as_md(projects: Vec<Project>, config: &Config) -> Result<Stri
         ));
 
         let client = zh_client(project.id.parse::<i64>()?, config)?;
-        let issues = issue::build_list(&client, &project.milestones)?;
         let tasks = task::build_list(&client, &project.milestones)?;
+        let issues = issue::build_list(&client, &project.milestones)?;
         output.push_str(&write_actions_md(merge_actions(
             classify_actions(issues),
             classify_actions(tasks),

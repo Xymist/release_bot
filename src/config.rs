@@ -25,14 +25,14 @@ fn parse_config(path: &str) -> Config {
     config
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct Project {
     pub name: String,
     pub id: String,
     pub milestones: Vec<String>,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct Config {
     // List of the repositories we need to evaluate
     pub repos: Vec<Repo>,

@@ -1,6 +1,6 @@
 [package]
 name = "release_bot"
-version = "0.6.8" #:version
+version = "0.6.9" #:version
 authors = ["Xymist <james@jamieduerden.me>"]
 readme = "README.md"
 description = "Application for generating Market Dojo release notes."
@@ -20,7 +20,10 @@ regex = "0.2"
 lazy_static = "0.2.9"
 Inflector = "0.11.0"
 toml = "0.4"
-zohohorrorshow = "0.5.9"
+
+[dependencies.zohohorrorshow]
+version = "0.6.0"
+# path = "../zohohorrorshow"
 
 [dependencies.chrono]
 features = ["serde"]
