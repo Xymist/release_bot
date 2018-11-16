@@ -1,5 +1,5 @@
-use errors::*;
-use pull_list::repo::Repo;
+use crate::errors::*;
+use crate::pull_list::repo::Repo;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;

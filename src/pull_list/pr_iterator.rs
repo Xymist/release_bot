@@ -1,9 +1,9 @@
-use errors::*;
+use crate::errors::*;
 use hyper::header::{Authorization, Link, RelationType};
-use pull_list::predicate::Predicate;
-use pull_list::pull::Pull;
+use crate::pull_list::predicate::Predicate;
+use crate::pull_list::pull::Pull;
 use reqwest;
-use Config;
+use crate::Config;
 
 pub struct PRIterator {
     pub items: <Vec<Pull> as IntoIterator>::IntoIter,

@@ -1,7 +1,7 @@
-use errors::*;
+use crate::errors::*;
 use std::rc::Rc;
-use zoho_bugs::task_iterator::TaskIterator;
-use zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
+use crate::zoho_bugs::task_iterator::TaskIterator;
+use crate::zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
 use zohohorrorshow::{
     client::ZohoClient,
     models::{task, tasklist},

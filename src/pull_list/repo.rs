@@ -1,12 +1,12 @@
-use errors::*;
+use crate::errors::*;
 use hyper::header::Authorization;
-use pull_list::pr_iterator::PRIterator;
-use pull_list::predicate::Predicate;
-use pull_list::pull::Pull;
-use pull_list::release::Release;
+use crate::pull_list::pr_iterator::PRIterator;
+use crate::pull_list::predicate::Predicate;
+use crate::pull_list::pull::Pull;
+use crate::pull_list::release::Release;
 use reqwest;
 use std::fmt;
-use Config;
+use crate::Config;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Repo {

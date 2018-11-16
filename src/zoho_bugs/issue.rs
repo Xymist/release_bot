@@ -1,7 +1,7 @@
-use errors::*;
+use crate::errors::*;
 use std::rc::Rc;
-use zoho_bugs::issue_iterator::IssueIterator;
-use zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
+use crate::zoho_bugs::issue_iterator::IssueIterator;
+use crate::zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
 use zohohorrorshow::{
     client::ZohoClient,
     models::{bug, milestone},

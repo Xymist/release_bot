@@ -5,10 +5,10 @@ mod task_iterator;
 
 use self::{issue::Issue, task::Task};
 
-use errors::*;
+use crate::errors::*;
 use std::rc::Rc;
 use zohohorrorshow::client::ZohoClient;
-use Config;
+use crate::Config;
 
 // Flagging issues and tasks as closed uses custom fields, which are not necessarily consistently
 // named. This should be an exhaustive list of those statuses which indicate that QA is happy with

@@ -1,5 +1,5 @@
 use chrono::{offset, DateTime};
-use pull_list::github_user::GithubUser;
+use crate::pull_list::github_user::GithubUser;
 use std::fmt;
 
 #[derive(Deserialize, Debug, Clone)]

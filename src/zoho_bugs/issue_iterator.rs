@@ -1,5 +1,5 @@
-use errors::*;
-use issue::Issue;
+use crate::errors::*;
+use crate::issue::Issue;
 use std::rc::Rc;
 use zohohorrorshow::{client::ZohoClient, models::bug};
 

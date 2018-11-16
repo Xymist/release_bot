@@ -1,6 +1,6 @@
-use errors::*;
+use crate::errors::*;
 use std::rc::Rc;
-use task::Task;
+use crate::task::Task;
 use zohohorrorshow::{client::ZohoClient, models::task};
 
 #[derive(Debug, Clone)]
