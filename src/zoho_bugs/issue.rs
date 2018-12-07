@@ -1,7 +1,7 @@
 use crate::errors::*;
-use std::rc::Rc;
 use crate::zoho_bugs::issue_iterator::IssueIterator;
 use crate::zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
+use std::rc::Rc;
 use zohohorrorshow::{
     client::ZohoClient,
     models::{bug, milestone},
@@ -38,7 +38,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<
 
             match p_m {
                 Some(n) => Some(n.id.to_string()),
-                None => None
+                None => None,
             }
         })
         .collect();

@@ -3,7 +3,7 @@ use reqwest;
 use std::{io, num};
 use zohohorrorshow;
 
-error_chain!{
+error_chain! {
     foreign_links {
         NumError(num::ParseIntError);
         IOError(io::Error);

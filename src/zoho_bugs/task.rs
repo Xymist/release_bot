@@ -1,7 +1,7 @@
 use crate::errors::*;
-use std::rc::Rc;
 use crate::zoho_bugs::task_iterator::TaskIterator;
 use crate::zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
+use std::rc::Rc;
 use zohohorrorshow::{
     client::ZohoClient,
     models::{task, tasklist},
@@ -32,7 +32,7 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<
         .into_iter()
         .filter_map(|t| {
             if milestones.contains(&t.milestone.name.trim().to_owned()) {
-                return Some(t.id)
+                return Some(t.id);
             }
             None
         })

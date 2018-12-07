@@ -22,12 +22,12 @@ mod zoho_bugs;
 use crate::config::{Config, Project};
 use crate::errors::*;
 use crate::pull_list::{csv_repo, format_repo, repo::Repo};
-use std::env;
-use std::fs::File;
-use std::io::prelude::*;
 use crate::zoho_bugs::{
     classify_actions, issue, merge_actions, task, write_actions_csv, write_actions_md, zh_client,
 };
+use std::env;
+use std::fs::File;
+use std::io::prelude::*;
 
 // Preamble for generated email or document; this might be removed in future as it is too specific
 // to a single function of the crate.
@@ -101,7 +101,8 @@ fn format_projects_as_csv(projects: Vec<Project>, config: &Config) -> Result<Str
             &write_actions_csv(merge_actions(
                 classify_actions(issues),
                 classify_actions(tasks),
-            )).to_string(),
+            ))
+            .to_string(),
         );
     }
     Ok(output)

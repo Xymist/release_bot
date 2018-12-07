@@ -6,9 +6,9 @@ mod task_iterator;
 use self::{issue::Issue, task::Task};
 
 use crate::errors::*;
+use crate::Config;
 use std::rc::Rc;
 use zohohorrorshow::client::ZohoClient;
-use crate::Config;
 
 // Flagging issues and tasks as closed uses custom fields, which are not necessarily consistently
 // named. This should be an exhaustive list of those statuses which indicate that QA is happy with
@@ -200,7 +200,8 @@ pub fn zh_client(project_id: i64, config: &Config) -> Result<Rc<ZohoClient>> {
         &config.zoho_authtoken,
         Some(&config.zoho_organisation),
         None,
-    ).chain_err(|| "Could not initialize; exiting")?;
+    )
+    .chain_err(|| "Could not initialize; exiting")?;
 
     if let Some(cl) = Rc::get_mut(&mut client) {
         cl.project(project_id);

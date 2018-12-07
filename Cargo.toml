@@ -7,6 +7,7 @@ description = "Application for generating Market Dojo release notes."
 homepage = "https://github.com/Xymist/release_bot"
 repository = "https://github.com/Xymist/release_bot"
 license = "MIT"
+edition = "2018"
 
 [dependencies]
 clap = "2.26"
