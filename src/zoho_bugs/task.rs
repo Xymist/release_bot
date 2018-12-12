@@ -1,6 +1,7 @@
 use crate::errors::*;
 use crate::zoho_bugs::task_iterator::TaskIterator;
 use crate::zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
+use serde_derive::Deserialize;
 use std::rc::Rc;
 use zohohorrorshow::{
     client::ZohoClient,

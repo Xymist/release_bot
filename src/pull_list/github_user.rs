@@ -1,3 +1,5 @@
+use serde_derive::Deserialize;
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct GithubUser {
     pub id: u32,

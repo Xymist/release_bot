@@ -1,18 +1,7 @@
 //! This crate is a documentation generation crate for single releases of Market Dojo; it accesses both
 //! GitHub and the Zoho Projects API to retrieve data.
 
-extern crate chrono;
-#[macro_use]
-extern crate error_chain;
-extern crate hyper;
-extern crate inflector;
-extern crate regex;
-extern crate reqwest;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate toml;
-extern crate zohohorrorshow;
+use error_chain::{bail, quick_main};
 
 mod config;
 mod errors;

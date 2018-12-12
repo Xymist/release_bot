@@ -1,5 +1,6 @@
 use crate::errors::*;
 use crate::pull_list::repo::Repo;
+use serde_derive::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;

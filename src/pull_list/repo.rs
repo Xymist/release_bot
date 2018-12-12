@@ -4,8 +4,10 @@ use crate::pull_list::predicate::Predicate;
 use crate::pull_list::pull::Pull;
 use crate::pull_list::release::Release;
 use crate::Config;
+use error_chain::bail;
 use hyper::header::Authorization;
 use reqwest;
+use serde_derive::Deserialize;
 use std::fmt;
 
 #[derive(Deserialize, Debug, Clone)]
