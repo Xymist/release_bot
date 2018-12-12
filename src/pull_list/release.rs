@@ -12,7 +12,7 @@ pub struct Release {
 }
 
 impl fmt::Display for Release {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}, published {}",

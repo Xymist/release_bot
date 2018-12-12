@@ -20,7 +20,7 @@ pub struct Repo {
 }
 
 impl fmt::Display for Repo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
             "\n\n## Closed Pull Requests for {}\n\n### Last Release: {}",
