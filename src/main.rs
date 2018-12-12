@@ -18,14 +18,6 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
-// Preamble for generated email or document; this might be removed in future as it is too specific
-// to a single function of the crate.
-const PREAMBLE: &str = "Hi everyone,\n
-We have released a new version of Market Dojo to live.\n
-Please let your customers know if they are listed and you feel the fixes will be relevant to them.
-A complete list of changes is attached.\n
-Many thanks to the whole team who have worked incredibly hard to make this release possible.\n";
-
 fn format_preamble(config: &Config) -> String {
     let mut output: String = "".to_owned();
     let milestone_list: Vec<String> = config
@@ -35,7 +27,7 @@ fn format_preamble(config: &Config) -> String {
         .collect();
     let milestones = milestone_list.join(", ");
 
-    output.push_str(PREAMBLE);
+    output.push_str(&config.preamble);
     output.push_str(&format!(
         "\nThis includes development of the {} milestone(s).\n",
         milestones

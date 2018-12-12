@@ -43,6 +43,8 @@ pub struct Config {
     pub zoho_organisation: String,
     // API token for Zoho
     pub zoho_authtoken: String,
+    // Preamble to be inserted before report, if any
+    pub preamble: String,
     // Projects in Zoho
     pub zoho_projects: Vec<Project>,
 }
