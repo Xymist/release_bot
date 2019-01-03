@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+#![deny(rust_2018_idioms, rust_2018_compatibility, unsafe_code, clippy::all)]
+
 //! This crate is a documentation generation crate for single releases of Market Dojo; it accesses both
 //! GitHub and the Zoho Projects API to retrieve data.
 
