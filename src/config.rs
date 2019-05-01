@@ -1,4 +1,3 @@
-use crate::errors::*;
 use crate::pull_list::repo::Repo;
 use serde_derive::Deserialize;
 use std::fs::File;
@@ -6,24 +5,18 @@ use std::io::prelude::*;
 use std::path::Path;
 use toml;
 
-fn parse_config(path: &str) -> Config {
+pub fn parse_config(path: &str) -> Config {
     let mut config_toml = String::new();
-    let parsed_path = Path::new(path).canonicalize().unwrap();
+    let parsed_path = Path::new(path)
+        .canonicalize()
+        .expect("Failed to parse path to config file");
 
-    let mut file = match File::open(parsed_path) {
-        Ok(file) => file,
-        Err(e) => panic!("Could not find config file! [{:?}]", e),
-    };
+    let mut file = File::open(parsed_path).expect("Could not find config file: ");
 
     file.read_to_string(&mut config_toml)
-        .unwrap_or_else(|err| panic!("Error while reading config: [{}]", err));
+        .expect("Error while reading config: ");
 
-    let config: Config = match toml::from_str(&config_toml) {
-        Ok(t) => t,
-        Err(e) => panic!("Error while deserializing config [{:?}]", e),
-    };
-
-    config
+    toml::from_str(&config_toml).expect("Error while deserializing config: ")
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -35,38 +28,18 @@ pub struct Project {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
-    // List of the repositories we need to evaluate
+    /// List of the repositories we need to evaluate
     pub repos: Vec<Repo>,
-    // API token for GitHub
+    /// API token for GitHub
     pub github_token: String,
-    // Name of the organisation in Zoho
-    pub zoho_organisation: String,
-    // API token for Zoho
-    pub zoho_authtoken: String,
+    /// Name of the organisation in Zoho
+    pub zoho_portal_name: String,
+    /// Client ID for Zoho OAuth
+    pub zoho_client_id: String,
+    /// Client Secret for Zoho OAuth
+    pub zoho_client_secret: String,
     // Preamble to be inserted before report, if any
     pub preamble: String,
     // Projects in Zoho
     pub zoho_projects: Vec<Project>,
-}
-
-impl Config {
-    fn construct(&mut self) -> Result<()> {
-        let mut temp = ::std::mem::replace(&mut self.repos, Vec::new());
-        for repo in &mut temp {
-            repo.construct(self)?;
-        }
-        self.repos = temp;
-        Ok(())
-    }
-}
-
-impl Default for Config {
-    fn default() -> Config {
-        let mut config = parse_config("./config.toml");
-
-        match config.construct() {
-            Ok(()) => config,
-            Err(e) => panic!("Couldn't construct configuration: {:?}", e),
-        }
-    }
 }

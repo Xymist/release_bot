@@ -1,21 +1,12 @@
 use crate::errors::*;
-use crate::zoho_bugs::task_iterator::TaskIterator;
 use crate::zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
 use serde_derive::Deserialize;
-use std::rc::Rc;
-use zohohorrorshow::{
-    client::ZohoClient,
-    models::{task, tasklist},
-};
+use zohohorrorshow::prelude::*;
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Task(pub task::Task);
+pub struct Task(pub zoho_task::Task);
 
 impl Task {
-    pub fn closed_tag(&self) -> bool {
-        self.0.closed_tag()
-    }
-
     pub fn has_client(&self) -> bool {
         self.0.has_client()
     }
@@ -25,12 +16,15 @@ impl Task {
     }
 }
 
-pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<Action>> {
-    let tl_ids: Vec<i64> = tasklist::tasklists(client)
-        .flag("internal")
-        .fetch()
-        .expect("Failed to fetch Tasklists")
-        .into_iter()
+pub fn build_list(client: &ZohoClient, milestones: &[String]) -> Result<Vec<Action>> {
+    use zoho_tasklist::{Filter, Flag};
+
+    let tl_ids: Vec<i64> = client
+        .tasklists()
+        .filter(Filter::Flag(Flag::Internal))
+        .iter_get()
+        .filter(std::result::Result::is_ok)
+        .map(std::result::Result::unwrap)
         .filter_map(|t| {
             if milestones.contains(&t.milestone.name.trim().to_owned()) {
                 return Some(t.id);
@@ -39,22 +33,26 @@ pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<
         })
         .collect();
 
-    let closed_tasks: Vec<Action> = TaskIterator::new(&client.clone())
-        .filter_map(Result::ok)
-        .peekable()
-        .filter(|t| t.closed_tag())
+    let closed_tasks: Vec<Action> = client
+        .tasks()
+        .iter_get()
+        .filter(std::result::Result::is_ok)
+        .map(std::result::Result::unwrap)
+        .filter(MDCustomFilters::closed_tag)
         .filter(|t| {
-            milestones.contains(&t.0.milestone().trim().to_owned())
-                || tl_ids.contains(&t.0.tasklist_id)
-                || tl_ids.contains(&t.0.clone().tasklist.unwrap_or_default().id)
+            let ms = &t.milestone().trim().to_owned();
+            milestones.contains(ms)
+                || tl_ids.contains(&t.tasklist_id)
+                || tl_ids.contains(&t.clone().tasklist.unwrap_or_default().id)
         })
+        .map(Task)
         .map(Action::ZTask)
         .collect();
 
     Ok(closed_tasks)
 }
 
-impl MDCustomFilters for task::Task {
+impl MDCustomFilters for zoho_task::Task {
     fn closed_tag(&self) -> bool {
         CLOSED_STATUSES
             .iter()

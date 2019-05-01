@@ -4,8 +4,6 @@ use crate::pull_list::predicate::Predicate;
 use crate::pull_list::pull::Pull;
 use crate::pull_list::release::Release;
 use crate::Config;
-use error_chain::bail;
-use hyper::header::Authorization;
 use reqwest;
 use serde_derive::Deserialize;
 use std::fmt;
@@ -25,7 +23,9 @@ impl fmt::Display for Repo {
             f,
             "\n\n## Closed Pull Requests for {}\n\n### Last Release: {}",
             self.name,
-            self.last_release.as_ref().unwrap()
+            self.last_release
+                .as_ref()
+                .expect("Last release not present for repo; has it been initialized?")
         )
     }
 }
@@ -46,14 +46,17 @@ impl Repo {
         let client = reqwest::Client::new();
         let mut req = client.get(&url);
 
-        req.header(Authorization(format!("token {}", config.github_token)));
+        req = req.header(
+            reqwest::header::AUTHORIZATION,
+            format!("token {}", config.github_token),
+        );
 
         let mut response = req.send()?;
 
         self.last_release = match response.status() {
-            reqwest::StatusCode::Ok => Some(response.json::<Release>()?),
-            reqwest::StatusCode::NotFound => Some(Release::default()),
-            _ => bail!("Server error: {:?}", response.status()),
+            reqwest::StatusCode::OK => Some(response.json::<Release>()?),
+            reqwest::StatusCode::NOT_FOUND => Some(Release::default()),
+            _ => panic!("Server error: {:?}", response.status()),
         };
 
         Ok(())
@@ -64,7 +67,11 @@ impl Repo {
             return Ok(());
         }
 
-        let pred = Predicate::from_release(self.last_release.as_ref().unwrap())?;
+        let pred = Predicate::from_release(
+            self.last_release
+                .as_ref()
+                .expect("Repo has no last release; has it been initialized?"),
+        )?;
 
         let base_url = format!(
             "https://api.github.com/repos/{}/pulls?state=closed&base={}",

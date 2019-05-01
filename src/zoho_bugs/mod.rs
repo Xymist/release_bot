@@ -1,14 +1,9 @@
 pub mod issue;
-mod issue_iterator;
 pub mod task;
-mod task_iterator;
 
-use self::{issue::Issue, task::Task};
-
+use crate::config::{Config, Project};
 use crate::errors::*;
-use crate::Config;
-use std::rc::Rc;
-use zohohorrorshow::client::ZohoClient;
+use zohohorrorshow::prelude::*;
 
 // Flagging issues and tasks as closed uses custom fields, which are not necessarily consistently
 // named. This should be an exhaustive list of those statuses which indicate that QA is happy with
@@ -29,13 +24,31 @@ pub trait MDCustomFilters {
 // may take action
 #[derive(Debug, Clone)]
 pub enum Action {
-    ZIssue(Issue),
-    ZTask(Task),
+    ZIssue(issue::Issue),
+    ZTask(task::Task),
 }
 
 pub struct CustomField {
     label_name: String,
     value: String,
+}
+
+impl From<&zohohorrorshow::models::bug::Customfield> for CustomField {
+    fn from(cf: &zohohorrorshow::models::bug::Customfield) -> CustomField {
+        CustomField {
+            label_name: cf.label_name.clone(),
+            value: cf.value.clone(),
+        }
+    }
+}
+
+impl From<&zohohorrorshow::models::task::CustomField> for CustomField {
+    fn from(cf: &zohohorrorshow::models::task::CustomField) -> CustomField {
+        CustomField {
+            label_name: cf.label_name.clone(),
+            value: cf.value.clone(),
+        }
+    }
 }
 
 impl Action {
@@ -70,69 +83,31 @@ impl Action {
     // according to the Zoho API. We abstract this and make it consistent.
     pub fn custom_fields(&self) -> Option<Vec<CustomField>> {
         match self {
-            Action::ZIssue(issue) => {
-                if issue.0.customfields.is_some() {
-                    Some(
-                        issue
-                            .0
-                            .customfields
-                            .clone()
-                            .unwrap()
-                            .iter()
-                            .map(|cf| CustomField {
-                                label_name: cf.label_name.clone(),
-                                value: cf.value.clone(),
-                            })
-                            .collect(),
-                    )
-                } else {
-                    None
-                }
-            }
-            Action::ZTask(task) => {
-                if task.0.custom_fields.is_some() {
-                    Some(
-                        task.0
-                            .custom_fields
-                            .clone()
-                            .unwrap()
-                            .iter()
-                            .map(|cf| CustomField {
-                                label_name: cf.label_name.clone(),
-                                value: cf.value.clone(),
-                            })
-                            .collect(),
-                    )
-                } else {
-                    None
-                }
-            }
-        }
-    }
-
-    // Format the relevant parts of an action into a comma-delimited string, for writing to a .csv
-    pub fn display_csv(&self) -> String {
-        match self {
-            Action::ZIssue(issue) => format!(
-                "[{}] {},{},{}",
-                issue.0.key,
-                issue.0.title,
-                issue.0.issue_type(),
-                issue.0.reported_person
+            Action::ZIssue(issue) => Some(
+                issue
+                    .0
+                    .customfields
+                    .as_ref()
+                    .unwrap_or(&Vec::new())
+                    .iter()
+                    .map(CustomField::from)
+                    .collect(),
             ),
-            Action::ZTask(task) => format!(
-                "[{}] {},{},{}",
-                task.0.key,
-                task.0.name,
-                task.0.issue_type(),
-                task.0.created_person
+            Action::ZTask(task) => Some(
+                task.0
+                    .custom_fields
+                    .as_ref()
+                    .unwrap_or(&Vec::new())
+                    .iter()
+                    .map(CustomField::from)
+                    .collect(),
             ),
         }
     }
 
     // Format the relevant parts of an action into a pipe-delimited string, for writing to a
     // Markdown document; this format is intended to produce a table.
-    pub fn display_md(&self) -> String {
+    pub fn display(&self) -> String {
         match self {
             Action::ZIssue(issue) => format!(
                 "| [{}] {} | {} | {} |",
@@ -195,19 +170,12 @@ impl ClassifiedActions {
 
 // Utilises the configuration defined in config.yml to generate a new ZohoClient, for interacting
 // with ZohoHorrorshow
-pub fn zh_client(project_id: i64, config: &Config) -> Result<Rc<ZohoClient>> {
-    let mut client = ZohoClient::new(
-        &config.zoho_authtoken,
-        Some(&config.zoho_organisation),
-        None,
-    )
-    .chain_err(|| "Could not initialize; exiting")?;
+pub fn zh_client(project: &Project, config: &Config) -> Result<ZohoClient> {
+    let client = ZohoClient::new(&config.zoho_client_id, &config.zoho_client_secret);
 
-    if let Some(cl) = Rc::get_mut(&mut client) {
-        cl.project(project_id);
-    };
-
-    Ok(client)
+    Ok(client
+        .set_portal(&config.zoho_portal_name)?
+        .set_project(&project.name)?)
 }
 
 // Given a Vec of either Issues or Tasks, partition them by type
@@ -222,7 +190,7 @@ pub fn classify_actions(issues: Vec<Action>) -> ClassifiedActions {
                 .expect("Somehow a task with clients and custom fields had no client custom field")
                 .value
                 .split(',')
-                .map(|s| s.to_owned())
+                .map(std::borrow::ToOwned::to_owned)
                 .collect();
 
             client_list.client_bugs.push(ClientBug {
@@ -255,36 +223,9 @@ pub fn merge_actions(
     issue_list
 }
 
-// Assembles a string representing the contents of a CSV file reporting on the contents of a
-// set of ClassifiedActions, for later printing or display.
-pub fn write_actions_csv(client_list: ClassifiedActions) -> String {
-    let mut output: String = "".to_owned();
-    let sorted_tickets = client_list.sort();
-
-    for client_bug in &sorted_tickets.client_bugs {
-        output.push_str(&format!(
-            "\n{},{}",
-            client_bug.bug.display_csv(),
-            client_bug.clients.join(";")
-        ));
-    }
-
-    for feature in sorted_tickets.features {
-        if !feature.has_client() {
-            output.push_str(&format!("\n{}", feature.display_csv()));
-        }
-    }
-
-    for other in sorted_tickets.others {
-        output.push_str(&format!("\n{}", other.display_csv()));
-    }
-
-    output
-}
-
 // Assembles a string representing the contents of a Markdown file reporting on the contents of a
 // set of ClassifiedActions, for later printing or display.
-pub fn write_actions_md(client_list: ClassifiedActions) -> String {
+pub fn write_actions(client_list: ClassifiedActions) -> String {
     let sorted_tickets = client_list.sort();
 
     let mut output: String = "### Client Bugs and Features\n".to_owned();
@@ -296,7 +237,7 @@ pub fn write_actions_md(client_list: ClassifiedActions) -> String {
     for client_bug in &sorted_tickets.client_bugs {
         output.push_str(&format!(
             "\n{} {} |",
-            client_bug.bug.display_md(),
+            client_bug.bug.display(),
             client_bug.clients.join(";")
         ))
     }
@@ -306,7 +247,7 @@ pub fn write_actions_md(client_list: ClassifiedActions) -> String {
     );
 
     for feature in sorted_tickets.features {
-        output.push_str(&format!("\n{}", feature.display_md()));
+        output.push_str(&format!("\n{}", feature.display()));
     }
 
     output.push_str(
@@ -314,7 +255,7 @@ pub fn write_actions_md(client_list: ClassifiedActions) -> String {
     );
 
     for other in sorted_tickets.others {
-        output.push_str(&format!("\n{}", other.display_md()));
+        output.push_str(&format!("\n{}", other.display()));
     }
 
     output

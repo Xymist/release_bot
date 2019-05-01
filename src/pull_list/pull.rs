@@ -1,7 +1,12 @@
-use crate::pull_list::github_user::GithubUser;
 use chrono::{offset, DateTime};
 use serde_derive::Deserialize;
 use std::fmt;
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct GithubUser {
+    pub id: u32,
+    pub login: String,
+}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Pull {
@@ -16,3 +21,4 @@ impl fmt::Display for Pull {
         write!(f, "[{}]({})", self.title, self.html_url)
     }
 }
+

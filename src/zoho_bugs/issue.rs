@@ -1,21 +1,12 @@
 use crate::errors::*;
-use crate::zoho_bugs::issue_iterator::IssueIterator;
 use crate::zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
 use serde_derive::Deserialize;
-use std::rc::Rc;
-use zohohorrorshow::{
-    client::ZohoClient,
-    models::{bug, milestone},
-};
+use zohohorrorshow::prelude::*;
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Issue(pub bug::Bug);
+pub struct Issue(pub zoho_bug::Bug);
 
 impl Issue {
-    pub fn is_closed(&self) -> bool {
-        self.0.closed_tag()
-    }
-
     pub fn has_client(&self) -> bool {
         self.0.has_client()
     }
@@ -25,43 +16,67 @@ impl Issue {
     }
 }
 
-pub fn build_list(client: &Rc<ZohoClient>, milestones: &[String]) -> Result<Vec<Action>> {
-    let ms_ids: Vec<String> = milestones
-        .iter()
-        .filter_map(|m| {
-            let p_m = milestone::milestones(client)
-                .status("notcompleted")
-                .display_type("all")
-                .fetch()
-                .expect("Failed to retrieve milestone list")
-                .into_iter()
-                .find(|ms| m == ms.name.trim());
+pub fn build_list(client: &ZohoClient, milestone_names: &[String]) -> Result<Vec<Action>> {
+    use zoho_bug;
+    use zoho_milestone::{DisplayType, Status};
 
-            match p_m {
-                Some(n) => Some(n.id.to_string()),
+    let maybe_milestones = client
+        .milestones()
+        .filter(zoho_milestone::Filter::Status(Status::NotCompleted))
+        .filter(zoho_milestone::Filter::DisplayType(DisplayType::All))
+        .get()
+        .unwrap_or(None);
+
+    if maybe_milestones.is_none() {
+        return Ok(Vec::new());
+    }
+
+    let milestones = maybe_milestones.unwrap().milestones;
+
+    let ms_ids: Vec<i64> = milestone_names
+        .iter()
+        .filter_map(|name| {
+            let found = milestones.iter().find(|ms| *name == ms.name.trim());
+
+            match found {
+                Some(ms) => Some(ms.id),
                 None => None,
             }
         })
         .collect();
 
-    let buglist: Vec<Action> = IssueIterator::new(&client.clone(), ms_ids)
-        .filter_map(Result::ok)
-        .peekable()
-        .filter(|bug| bug.is_closed())
+    if ms_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let request = client
+        .bugs()
+        .filter(zoho_bug::Filter::Milestone(ms_ids))
+        .filter(zoho_bug::Filter::SortColumn(
+            zoho_bug::SortColumn::LastModifiedTime,
+        ))
+        .filter(zoho_bug::Filter::SortOrder(zoho_bug::SortOrder::Descending));
+
+    let buglist = request
+        .iter_get()
+        .filter(std::result::Result::is_ok)
+        .map(std::result::Result::unwrap)
+        .filter(MDCustomFilters::closed_tag)
+        .map(Issue)
         .map(Action::ZIssue)
         .collect();
 
     Ok(buglist)
 }
 
-impl MDCustomFilters for bug::Bug {
+impl MDCustomFilters for zoho_bug::Bug {
     fn has_client(&self) -> bool {
-        if self.customfields.is_none() {
-            return false;
+        if let Some(ref cfs) = self.customfields {
+            return cfs
+                .iter()
+                .any(|cf| cf.label_name.to_lowercase().contains("from a client"));
         }
-        let cfs = self.customfields.as_ref().unwrap();
-        cfs.iter()
-            .any(|cf| cf.label_name.to_lowercase().contains("from a client"))
+        false
     }
 
     fn is_feature(&self) -> bool {

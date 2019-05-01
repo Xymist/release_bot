@@ -1,10 +1,14 @@
 #![warn(missing_docs)]
-#![deny(rust_2018_idioms, rust_2018_compatibility, unsafe_code, clippy::all)]
+#![deny(
+    unused_imports,
+    rust_2018_idioms,
+    rust_2018_compatibility,
+    unsafe_code,
+    clippy::all
+)]
 
 //! This crate is a documentation generation crate for single releases of Market Dojo; it accesses both
 //! GitHub and the Zoho Projects API to retrieve data.
-
-use error_chain::{bail, quick_main};
 
 mod config;
 mod errors;
@@ -13,13 +17,13 @@ mod zoho_bugs;
 
 use crate::config::{Config, Project};
 use crate::errors::*;
-use crate::pull_list::{csv_repo, format_repo, repo::Repo};
-use crate::zoho_bugs::{
-    classify_actions, issue, merge_actions, task, write_actions_csv, write_actions_md, zh_client,
-};
-use std::env;
+use crate::pull_list::{format_repo, repo::Repo};
+use crate::zoho_bugs::{classify_actions, issue, merge_actions, task, write_actions, zh_client};
+
 use std::fs::File;
 use std::io::prelude::*;
+use std::sync::Arc;
+use std::thread;
 
 fn format_preamble(config: &Config) -> String {
     let mut output: String = "".to_owned();
@@ -38,7 +42,7 @@ fn format_preamble(config: &Config) -> String {
     output
 }
 
-fn format_projects_as_md(projects: Vec<Project>, config: &Config) -> Result<String> {
+fn format_projects(projects: Vec<Project>, config: &Config) -> Result<String> {
     let mut output: String = "".to_owned();
     for project in projects {
         output.push_str(&format!(
@@ -46,107 +50,98 @@ fn format_projects_as_md(projects: Vec<Project>, config: &Config) -> Result<Stri
             project.name
         ));
 
-        let client = zh_client(project.id.parse::<i64>()?, config)?;
-        let tasks = task::build_list(&client, &project.milestones)?;
-        let issues = issue::build_list(&client, &project.milestones)?;
-        output.push_str(&write_actions_md(merge_actions(
-            classify_actions(issues),
+        let client = Arc::new(zh_client(&project, config)?);
+        let sync_project = Arc::new(project.clone());
+
+        let task_client = Arc::clone(&client);
+        let task_project = Arc::clone(&sync_project);
+
+        let issue_client = Arc::clone(&client);
+        let issue_project = Arc::clone(&sync_project);
+
+        let task_thread = thread::spawn(move || -> Result<Vec<zoho_bugs::Action>> {
+            task::build_list(&task_client, &task_project.milestones)
+        });
+        let issue_thread = thread::spawn(move || -> Result<Vec<zoho_bugs::Action>> {
+            issue::build_list(&issue_client, &issue_project.milestones)
+        });
+
+        let tasks = task_thread
+            .join()
+            .expect("Task list builder thread panicked: ")
+            .expect("Task list builder failed to find any tasks: ");
+        let issues = issue_thread
+            .join()
+            .expect("Issue list builder thread panicked: ")
+            .expect("Issue list builder failed to find any issues: ");
+
+        output.push_str(&write_actions(merge_actions(
             classify_actions(tasks),
+            classify_actions(issues),
         )));
     }
+
     Ok(output)
 }
 
-fn format_repos_as_md(repos: Vec<Repo>) -> String {
+fn format_repos(repos: Vec<Repo>, config: &Config) -> String {
     let mut output: String = "".to_owned();
-    for repo in repos {
-        output.push_str(&format_repo(repo));
+    let mut children = Vec::new();
+    let sync_config = Arc::new(config.clone());
+
+    for repo in repos.into_iter() {
+        let conf = Arc::clone(&sync_config);
+        children.push(thread::spawn(move || -> String {
+            format_repo(repo, &conf)
+        }));
     }
+
+    for child in children {
+        output.push_str(&child.join().expect("Repo formatting thread failed: "));
+    }
+
     output
 }
 
-fn format_repos_as_csv(repos: Vec<Repo>) -> String {
-    let mut output: String = "Repository,Pull Request,Contributor".to_owned();
-    for repo in repos {
-        if let Some(csv) = csv_repo(repo) {
-            output.push_str(&format!("\n{}", csv));
-        }
-    }
-    output
-}
-
-fn format_projects_as_csv(projects: Vec<Project>, config: &Config) -> Result<String> {
-    let mut output: String = "Ticket Name,Ticket Type,Raised By,Clients".to_owned();
-    for project in projects {
-        let client = zh_client(project.id.parse::<i64>()?, config)?;
-        let issues = issue::build_list(&client, &project.milestones)?;
-        let tasks = task::build_list(&client, &project.milestones)?;
-        output.push_str(
-            &write_actions_csv(merge_actions(
-                classify_actions(issues),
-                classify_actions(tasks),
-            ))
-            .to_string(),
-        );
-    }
-    Ok(output)
-}
-
-fn markdown_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Result<()> {
+fn write_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Result<()> {
     let mut file = File::create(&format!(
         "release-{}.md",
         config.zoho_projects[0].milestones[0]
     ))?;
+
+    let preamble = format_preamble(config);
+    let project_data = format_projects(projects, config)?;
+    let repo_data = format_repos(repos, config);
+
     file.write_fmt(format_args!(
         "# Release {}\n\n",
         config.zoho_projects[0].milestones[0]
     ))?;
-    file.write_fmt(format_args!("{}", format_preamble(config)))?;
-    file.write_fmt(format_args!("{}", format_projects_as_md(projects, config)?))?;
-    file.write_fmt(format_args!("{}", format_repos_as_md(repos)))?;
-    Ok(())
-}
-
-fn csv_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Result<()> {
-    let mut project_file = File::create(&format!(
-        "projects-{}.csv",
-        config.zoho_projects[0].milestones[0]
-    ))?;
-    let mut repository_file = File::create(&format!(
-        "repos-{}.csv",
-        config.zoho_projects[0].milestones[0]
-    ))?;
-    project_file.write_fmt(format_args!(
-        "{}",
-        format_projects_as_csv(projects, config)?
-    ))?;
-    repository_file.write_fmt(format_args!("{}", format_repos_as_csv(repos)))?;
+    file.write_fmt(format_args!("{}", preamble))?;
+    file.write_fmt(format_args!("{}", project_data))?;
+    file.write_fmt(format_args!("{}", repo_data))?;
     Ok(())
 }
 
 fn run() -> Result<i32> {
-    let args: Vec<String> = env::args().collect();
-    let config = Config::default();
+    let config = config::parse_config("./config.toml");
     let repos = config.repos.clone();
     let projects = config.zoho_projects.clone();
 
-    let output_option = match args.len() {
-        1 => "md",
-        2 => &args[1],
-        _ => bail!("Too many arguments"),
-    };
-
-    match output_option {
-        "all" => {
-            csv_output(&config, projects.clone(), repos.clone())?;
-            markdown_output(&config, projects, repos)?
-        }
-        "csv" => csv_output(&config, projects, repos)?,
-        "md" => markdown_output(&config, projects, repos)?,
-        _ => println!("Not a valid output format. Try 'csv', 'md' or 'all'"),
-    };
+    write_output(&config, projects, repos)?;
 
     Ok(0)
 }
 
-quick_main!(run);
+fn main() {
+    ::std::process::exit(match run() {
+        Ok(_) => {
+            println!("Goodbye");
+            0
+        }
+        Err(err) => {
+            eprintln!("Error occurred while running: {:?}", err);
+            1
+        }
+    });
+}

@@ -10,20 +10,15 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
-clap = "2.26"
-dotenv = "0.10"
-error-chain = "0.11"
-hyper = "0.11"
-reqwest = "0.8"
+failure = "0.1.5"
+reqwest = "0.9"
 serde = "1.0"
 serde_derive = "1.0"
-regex = "0.2"
-lazy_static = "0.2.9"
-Inflector = "0.11.0"
-toml = "0.4"
+Inflector = "0.11"
+toml = "0.5"
 
 [dependencies.zohohorrorshow]
-version = "0.6.0"
+version = "0.7.3"
 # path = "../zohohorrorshow"
 
 [dependencies.chrono]

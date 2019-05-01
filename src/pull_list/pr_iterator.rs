@@ -2,8 +2,6 @@ use crate::errors::*;
 use crate::pull_list::predicate::Predicate;
 use crate::pull_list::pull::Pull;
 use crate::Config;
-use error_chain::bail;
-use hyper::header::{Authorization, Link, RelationType};
 use reqwest;
 
 pub struct PRIterator {
@@ -37,11 +35,14 @@ impl PRIterator {
         let url = self.next_link.take().unwrap();
         let mut req = self.client.get(&url);
 
-        req.header(Authorization(format!("token {}", &self.github_token)));
+        req = req.header(
+            reqwest::header::AUTHORIZATION,
+            format!("token {}", &self.github_token),
+        );
 
         let mut response = req.send()?;
         if !response.status().is_success() {
-            bail!("Server error: {:?}", response.status());
+            panic!("Server error: {:?}", response.status());
         }
 
         let returned_items = response.json::<Vec<Pull>>()?;
@@ -51,18 +52,18 @@ impl PRIterator {
         if returned_items.len() == 100 {
             // The response that GitHub's API will give is limited to a few PRs;
             // a header is attached with the url of the next set.
-            if let Some(header) = response.headers().get::<Link>() {
-                for val in header.values() {
-                    if val
-                        .rel()
-                        .map(|rel| rel.contains(&RelationType::Next))
-                        .unwrap_or(false)
-                    {
-                        self.next_link = Some(val.link().to_owned());
-                        break;
-                    }
-                }
-            }
+            let next_link: &str = response
+                .headers()
+                .get_all(reqwest::header::LINK)
+                .iter()
+                .map(reqwest::header::HeaderValue::to_str)
+                .map(std::result::Result::unwrap)
+                .filter(|rel| rel.contains("rel=\"next\""))
+                .collect::<Vec<&str>>()
+                .first()
+                .unwrap();
+
+            self.next_link = Some(next_link.to_owned());
         }
 
         let item_iter = returned_items.into_iter();
