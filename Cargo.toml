@@ -1,6 +1,6 @@
 [package]
 name = "release_bot"
-version = "0.6.10" #:version
+version = "0.7.0" #:version
 authors = ["Xymist <james@jamieduerden.me>"]
 readme = "README.md"
 description = "Application for generating Market Dojo release notes."
