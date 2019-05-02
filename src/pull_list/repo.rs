@@ -11,10 +11,11 @@ use std::fmt;
 #[derive(Deserialize, Debug, Clone)]
 pub struct Repo {
     pub name: String,
-    pub base: String,
-    pub feature: String,
     pub last_release: Option<Release>,
     pub pulls: Option<Vec<Pull>>,
+    base: String,
+    feature: String,
+    since: Option<String>,
 }
 
 impl fmt::Display for Repo {
@@ -42,7 +43,14 @@ impl Repo {
         if self.last_release.is_some() {
             return Ok(());
         }
-        let url = format!("https://api.github.com/repos/{}/releases/latest", self.name);
+
+        let tag = if let Some(ref last_release_tag) = self.since {
+            format!("tags/{}", last_release_tag)
+        } else {
+            "latest".to_owned()
+        };
+
+        let url = format!("https://api.github.com/repos/{}/releases/{}", self.name, tag);
         let client = reqwest::Client::new();
         let mut req = client.get(&url);
 
