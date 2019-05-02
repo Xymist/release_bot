@@ -17,7 +17,6 @@ impl Issue {
 }
 
 pub fn build_list(client: &ZohoClient, milestone_names: &[String]) -> Result<Vec<Action>> {
-    use zoho_bug;
     use zoho_milestone::{DisplayType, Status};
 
     let maybe_milestones = client

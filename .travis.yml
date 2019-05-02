@@ -3,8 +3,8 @@ os:
 - osx
 language: rust
 rust:
-- nightly
-env: ZOHO_PORTAL_NAME=notarealportal ZOHO_PROJECT_NAME=notarealproject ZOHO_AUTHTOKEN=notarealtoken
+- stable
+env: ZOHO_PORTAL_NAME=notarealportal ZOHO_PROJECT_NAME=notarealproject
 script:
 - cargo test
 - cargo build --release
