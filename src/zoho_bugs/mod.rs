@@ -4,11 +4,17 @@ pub mod task;
 use crate::config::{Config, Project};
 use crate::errors::*;
 use zohohorrorshow::prelude::*;
+use regex::Regex;
+use lazy_static::lazy_static;
 
 // Flagging issues and tasks as closed uses custom fields, which are not necessarily consistently
 // named. This should be an exhaustive list of those statuses which indicate that QA is happy with
 // the ticket as it stands.
 pub const CLOSED_STATUSES: &[&str] = &["tested on staging", "tested on live", "closed"];
+
+lazy_static!{
+    static ref QUOTES: Regex = Regex::new("[`\'’\"]").expect("Failed to compile Regex");
+}
 
 // Filters which are required for this application but which ZohoHorrorshow does not provide since
 // they are dependent on factors defined in MD's Zoho Project settings
@@ -112,14 +118,14 @@ impl Action {
             Action::ZIssue(issue) => format!(
                 "| [{}] {} | {} | {} |",
                 issue.0.key,
-                issue.0.title,
+                QUOTES.replace_all(&issue.0.title, ""),
                 issue.0.issue_type(),
                 issue.0.reported_person
             ),
             Action::ZTask(task) => format!(
                 "| [{}] {} | {} | {} |",
                 task.0.key,
-                task.0.name,
+                QUOTES.replace_all(&task.0.name, ""),
                 task.0.issue_type(),
                 task.0.created_person
             ),
