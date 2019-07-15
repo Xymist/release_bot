@@ -4,7 +4,8 @@
     rust_2018_idioms,
     rust_2018_compatibility,
     unsafe_code,
-    clippy::all
+    clippy::all,
+    dead_code
 )]
 
 //! This crate is a documentation generation crate for single releases of Market Dojo; it accesses both
@@ -114,12 +115,12 @@ fn write_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Re
     let repo_data = format_repos(repos, config);
 
     file.write_fmt(format_args!(
-        "# Release {}\n\n",
-        config.zoho_projects[0].milestones[0]
+        "# Release {}\n\n{}{}{}\n",
+        config.zoho_projects[0].milestones[0],
+        preamble,
+        project_data,
+        repo_data,
     ))?;
-    file.write_fmt(format_args!("{}", preamble))?;
-    file.write_fmt(format_args!("{}", project_data))?;
-    file.write_fmt(format_args!("{}", repo_data))?;
     Ok(())
 }
 

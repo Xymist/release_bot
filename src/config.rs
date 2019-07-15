@@ -29,6 +29,7 @@ pub struct Project {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
     /// List of the repositories we need to evaluate
+    #[serde(default)]
     pub repos: Vec<Repo>,
     /// API token for GitHub
     pub github_token: String,
@@ -38,8 +39,9 @@ pub struct Config {
     pub zoho_client_id: String,
     /// Client Secret for Zoho OAuth
     pub zoho_client_secret: String,
-    // Preamble to be inserted before report, if any
+    /// Preamble to be inserted before report, if any
     pub preamble: String,
-    // Projects in Zoho
+    /// Projects in Zoho
+    #[serde(default)]
     pub zoho_projects: Vec<Project>,
 }
