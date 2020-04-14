@@ -71,13 +71,8 @@ impl MDCustomFilters for zoho_task::Task {
     fn milestone(&self) -> String {
         if self.custom_fields.is_some() {
             let cfs = self.custom_fields.as_ref().unwrap();
-            if cfs.iter().any(|cf| cf.label_name == "Release Milestone") {
-                return cfs
-                    .iter()
-                    .find(|cf| cf.label_name == "Release Milestone")
-                    .expect("Failed to extract Release Milestone")
-                    .value
-                    .clone();
+            if let Some(cf) = cfs.iter().find(|cf| cf.label_name == "Release Milestone") {
+                return cf.value.clone();
             }
         }
         "".to_owned()

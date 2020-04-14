@@ -50,7 +50,10 @@ impl Repo {
             "latest".to_owned()
         };
 
-        let url = format!("https://api.github.com/repos/{}/releases/{}", self.name, tag);
+        let url = format!(
+            "https://api.github.com/repos/{}/releases/{}",
+            self.name, tag
+        );
         let client = reqwest::Client::new();
         let mut req = client.get(&url);
 

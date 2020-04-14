@@ -21,4 +21,3 @@ impl fmt::Display for Pull {
         write!(f, "[{}]({})", self.title, self.html_url)
     }
 }
-

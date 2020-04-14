@@ -3,18 +3,16 @@ pub mod task;
 
 use crate::config::{Config, Project};
 use crate::errors::*;
-use zohohorrorshow::prelude::*;
+use once_cell::sync::Lazy;
 use regex::Regex;
-use lazy_static::lazy_static;
+use zohohorrorshow::prelude::*;
 
 // Flagging issues and tasks as closed uses custom fields, which are not necessarily consistently
 // named. This should be an exhaustive list of those statuses which indicate that QA is happy with
 // the ticket as it stands.
 pub const CLOSED_STATUSES: &[&str] = &["tested on staging", "tested on live", "closed"];
 
-lazy_static!{
-    static ref QUOTES: Regex = Regex::new("[`\'’\"]").expect("Failed to compile Regex");
-}
+static QUOTES: Lazy<Regex> = Lazy::new(|| Regex::new("[`'’\"]").expect("Failed to compile Regex"));
 
 // Filters which are required for this application but which ZohoHorrorshow does not provide since
 // they are dependent on factors defined in MD's Zoho Project settings
@@ -189,21 +187,23 @@ pub fn classify_actions(issues: Vec<Action>) -> ClassifiedActions {
     let mut client_list: ClassifiedActions = ClassifiedActions::new();
 
     for issue in issues {
-        if let (true, Some(cfs)) = (issue.has_client(), issue.custom_fields()) {
-            let clients: Vec<String> = cfs
-                .into_iter()
+        issue.custom_fields().and_then(|cfs| {
+            cfs.into_iter()
                 .find(|cf| cf.label_name.to_lowercase().contains("from a client"))
-                .expect("Somehow a task with clients and custom fields had no client custom field")
-                .value
-                .split(',')
-                .map(std::borrow::ToOwned::to_owned)
-                .collect();
-
-            client_list.client_bugs.push(ClientBug {
-                clients,
-                bug: issue.clone(),
-            });
-        };
+                .map(|cf| {
+                    cf.value
+                        .split(',')
+                        .map(std::borrow::ToOwned::to_owned)
+                        .collect()
+                })
+                .and_then(|clients| {
+                    client_list.client_bugs.push(ClientBug {
+                        clients,
+                        bug: issue.clone(),
+                    });
+                    Some(())
+                })
+        });
 
         if issue.is_feature() {
             client_list.features.push(issue.clone())

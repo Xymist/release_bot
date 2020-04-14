@@ -1,16 +1,17 @@
 os:
-- linux
-- osx
+  - linux
+  - osx
 language: rust
 rust:
-- stable
+  - stable
 env: ZOHO_PORTAL_NAME=notarealportal ZOHO_PROJECT_NAME=notarealproject
 script:
-- cargo test
-- cargo build --release
+  - cargo test
+  - cargo build --release
+  - strip target/release/release_bot
 before_deploy:
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mv target/release/release_bot release_bot-$(git describe --tags)-Darwin-x86-64 ; fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mv target/release/release_bot release_bot-$(git describe --tags)-Linux-x86-64 ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mv target/release/release_bot release_bot-$(git describe --tags)-Darwin-x86-64 ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mv target/release/release_bot release_bot-$(git describe --tags)-Linux-x86-64 ; fi
 deploy:
   provider: releases
   api_key:

@@ -1,7 +1,4 @@
-use chrono;
-use reqwest;
 use std::{fmt, io};
-use zohohorrorshow;
 
 use failure::{Backtrace, Context, Fail};
 
@@ -15,11 +12,6 @@ pub struct Error {
 }
 
 impl Error {
-    /// Return the kind of this error.
-    // pub fn kind(&self) -> &ErrorKind {
-    //     self.ctx.get_context()
-    // }
-
     pub(crate) fn chrono_parse(err: chrono::ParseError) -> Error {
         Error::from(ErrorKind::Chrono(err.to_string()))
     }

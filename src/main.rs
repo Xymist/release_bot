@@ -116,10 +116,7 @@ fn write_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Re
 
     file.write_fmt(format_args!(
         "# Release {}\n\n{}{}{}\n",
-        config.zoho_projects[0].milestones[0],
-        preamble,
-        project_data,
-        repo_data,
+        config.zoho_projects[0].milestones[0], preamble, project_data, repo_data,
     ))?;
     Ok(())
 }
@@ -135,6 +132,8 @@ fn run() -> Result<i32> {
 }
 
 fn main() {
+    pretty_env_logger::init();
+
     ::std::process::exit(match run() {
         Ok(_) => {
             println!("Goodbye");
