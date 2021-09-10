@@ -22,8 +22,8 @@ pretty_env_logger = "0.4.0"
 log = "0.4.8"
 
 [dependencies.zohohorrorshow]
-version = "0.7.6"
-# path = "../zohohorrorshow"
+version = "0.7.7"
+path = "../zohohorrorshow"
 
 [dependencies.chrono]
 features = ["serde"]
