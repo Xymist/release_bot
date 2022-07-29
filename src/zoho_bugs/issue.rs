@@ -35,12 +35,10 @@ pub fn build_list(client: &ZohoClient, milestone_names: &[String]) -> Result<Vec
     let ms_ids: Vec<i64> = milestone_names
         .iter()
         .filter_map(|name| {
-            let found = milestones.iter().find(|ms| *name == ms.name.trim());
-
-            match found {
-                Some(ms) => Some(ms.id),
-                None => None,
-            }
+            milestones
+                .iter()
+                .find(|ms| *name == ms.name.trim())
+                .map(|ms| ms.id)
         })
         .collect();
 

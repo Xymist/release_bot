@@ -2,7 +2,6 @@ use crate::errors::*;
 use crate::pull_list::predicate::Predicate;
 use crate::pull_list::pull::Pull;
 use crate::Config;
-use reqwest;
 
 pub struct PRIterator {
     pub items: <Vec<Pull> as IntoIterator>::IntoIter,

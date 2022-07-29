@@ -3,7 +3,6 @@ use serde_derive::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use toml;
 
 pub fn parse_config(path: &str) -> Config {
     let mut config_toml = String::new();

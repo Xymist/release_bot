@@ -9,6 +9,7 @@ use crate::pull_list::pull::Pull;
 use crate::pull_list::repo::Repo;
 use inflector::Inflector;
 use std::collections::HashMap;
+use std::fmt::Write as _;
 
 // TODO: This should take a parameter repo list so that Main can use it
 // properly.
@@ -30,7 +31,7 @@ pub fn format_repo(mut repo: Repo, config: &Config) -> String {
             // This .rev() corrects the GitHub default order and gives us
             // a chronological record
             for cont_pull in cont_pulls.into_iter().rev() {
-                output.push_str(&format!("\n| {} | {} |", cont_pull, contributor));
+                write!(output, "\n| {} | {} |", cont_pull, contributor).unwrap();
             }
         }
     }

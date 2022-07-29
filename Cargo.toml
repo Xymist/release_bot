@@ -1,6 +1,6 @@
 [package]
 name = "release_bot"
-version = "0.7.3" #:version
+version = "0.7.4"                                                     #:version
 authors = ["Xymist <james@jamieduerden.me>"]
 readme = "README.md"
 description = "Application for generating Market Dojo release notes."
@@ -22,7 +22,7 @@ pretty_env_logger = "0.4.0"
 log = "0.4.8"
 
 [dependencies.zohohorrorshow]
-version = "0.7.6"
+version = "0.7.7"
 # path = "../zohohorrorshow"
 
 [dependencies.chrono]

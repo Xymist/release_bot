@@ -45,13 +45,12 @@ impl fmt::Display for Error {
     }
 }
 
+#[non_exhaustive]
 pub enum ErrorKind {
     IOError(String),
     ZohoHorrorshow(String),
     Reqwest(String),
     Chrono(String),
-    #[doc(hidden)]
-    __Nonexhaustive,
 }
 
 impl fmt::Display for ErrorKind {
@@ -61,7 +60,6 @@ impl fmt::Display for ErrorKind {
             ErrorKind::ZohoHorrorshow(ref msg) => write!(f, "{}", msg),
             ErrorKind::Reqwest(ref msg) => write!(f, "{}", msg),
             ErrorKind::Chrono(ref msg) => write!(f, "{}", msg),
-            _ => panic!("Invalid error kind encountered"),
         }
     }
 }

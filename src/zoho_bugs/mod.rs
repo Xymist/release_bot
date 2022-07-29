@@ -5,6 +5,7 @@ use crate::config::{Config, Project};
 use crate::errors::*;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::fmt::Write as _;
 use zohohorrorshow::prelude::*;
 
 // Flagging issues and tasks as closed uses custom fields, which are not necessarily consistently
@@ -165,8 +166,8 @@ impl ClassifiedActions {
     pub fn sort(mut self) -> Self {
         self.client_bugs
             .sort_by(|a, b| a.clients.len().cmp(&b.clients.len()));
-        self.features.sort_by(|a, b| a.name().cmp(&b.name()));
-        self.others.sort_by(|a, b| a.name().cmp(&b.name()));
+        self.features.sort_by_key(|a| a.name());
+        self.others.sort_by_key(|a| a.name());
 
         self
     }
@@ -196,12 +197,11 @@ pub fn classify_actions(issues: Vec<Action>) -> ClassifiedActions {
                         .map(std::borrow::ToOwned::to_owned)
                         .collect()
                 })
-                .and_then(|clients| {
+                .map(|clients| {
                     client_list.client_bugs.push(ClientBug {
                         clients,
                         bug: issue.clone(),
                     });
-                    Some(())
                 })
         });
 
@@ -241,11 +241,14 @@ pub fn write_actions(client_list: ClassifiedActions) -> String {
     );
 
     for client_bug in &sorted_tickets.client_bugs {
-        output.push_str(&format!(
+        // This is infallible - unwrap here is safe.
+        write!(
+            output,
             "\n{} {} |",
             client_bug.bug.display(),
             client_bug.clients.join(";")
-        ))
+        )
+        .unwrap();
     }
 
     output.push_str(
@@ -253,7 +256,8 @@ pub fn write_actions(client_list: ClassifiedActions) -> String {
     );
 
     for feature in sorted_tickets.features {
-        output.push_str(&format!("\n{}", feature.display()));
+        // This is infallible - unwrap here is safe.
+        write!(output, "\n{}", feature.display()).unwrap();
     }
 
     output.push_str(
@@ -261,7 +265,8 @@ pub fn write_actions(client_list: ClassifiedActions) -> String {
     );
 
     for other in sorted_tickets.others {
-        output.push_str(&format!("\n{}", other.display()));
+        // This is infallible - unwrap here is safe.
+        write!(output, "\n{}", other.display()).unwrap();
     }
 
     output

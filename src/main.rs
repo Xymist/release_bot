@@ -21,6 +21,7 @@ use crate::errors::*;
 use crate::pull_list::{format_repo, repo::Repo};
 use crate::zoho_bugs::{classify_actions, issue, merge_actions, task, write_actions, zh_client};
 
+use std::fmt::Write as _;
 use std::fs::File;
 use std::io::prelude::*;
 use std::sync::Arc;
@@ -35,21 +36,25 @@ fn format_preamble(config: &Config) -> String {
         .collect();
     let milestones = milestone_list.join(", ");
 
-    output.push_str(&config.preamble);
-    output.push_str(&format!(
-        "\nThis includes development of the {} milestone(s).\n",
-        milestones
-    ));
+    write!(
+        output,
+        "{}\nThis includes development of the {} milestone(s).\n",
+        config.preamble, milestones
+    )
+    .unwrap();
+
     output
 }
 
 fn format_projects(projects: Vec<Project>, config: &Config) -> Result<String> {
     let mut output: String = "".to_owned();
     for project in projects {
-        output.push_str(&format!(
+        write!(
+            output,
             "\n## Closed Tickets and Tasks for {}\n\n",
             project.name
-        ));
+        )
+        .unwrap();
 
         let client = Arc::new(zh_client(&project, config)?);
         let sync_project = Arc::new(project.clone());
