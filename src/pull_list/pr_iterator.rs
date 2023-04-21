@@ -51,18 +51,21 @@ impl PRIterator {
         if returned_items.len() == 100 {
             // The response that GitHub's API will give is limited to a few PRs;
             // a header is attached with the url of the next set.
-            let next_link: &str = response
+            self.next_link = response
                 .headers()
                 .get_all(reqwest::header::LINK)
                 .iter()
                 .map(reqwest::header::HeaderValue::to_str)
                 .map(std::result::Result::unwrap)
-                .filter(|rel| rel.contains("rel=\"next\""))
-                .collect::<Vec<&str>>()
-                .first()
-                .unwrap();
-
-            self.next_link = Some(next_link.to_owned());
+                .flat_map(|h| h.split(','))
+                .find(|rel| rel.contains("rel=\"next\""))
+                .map(|rel| {
+                    rel.split(';')
+                        .next()
+                        .unwrap()
+                        .trim_matches(['<', '>'].as_ref())
+                        .to_owned()
+                });
         }
 
         let item_iter = returned_items.into_iter();

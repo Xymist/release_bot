@@ -110,7 +110,7 @@ fn format_repos(repos: Vec<Repo>, config: &Config) -> String {
 }
 
 fn write_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Result<()> {
-    let mut file = File::create(&format!(
+    let mut file = File::create(format!(
         "release-{}.md",
         config.zoho_projects[0].milestones[0]
     ))?;

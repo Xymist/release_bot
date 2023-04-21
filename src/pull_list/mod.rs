@@ -9,7 +9,7 @@ use crate::pull_list::pull::Pull;
 use crate::pull_list::repo::Repo;
 use inflector::Inflector;
 use std::collections::HashMap;
-use std::fmt::Write as _;
+use std::fmt::Write;
 
 // TODO: This should take a parameter repo list so that Main can use it
 // properly.

@@ -16,6 +16,6 @@ impl Predicate {
 
     pub fn test(&self, pull: &Pull) -> bool {
         let pull_closed = pull.closed_at.date().naive_utc();
-        self.since.map(|v| pull_closed > v).unwrap_or(true)
+        self.since.map(|v| pull_closed > v).unwrap_or(true) && pull.user.login != "dependabot[bot]"
     }
 }

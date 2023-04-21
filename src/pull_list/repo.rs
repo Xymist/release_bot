@@ -14,7 +14,6 @@ pub struct Repo {
     pub last_release: Option<Release>,
     pub pulls: Option<Vec<Pull>>,
     base: String,
-    feature: String,
     since: Option<String>,
 }
 
@@ -85,30 +84,19 @@ impl Repo {
         )?;
 
         let base_url = format!(
-            "https://api.github.com/repos/{}/pulls?state=closed&base={}",
+            "https://api.github.com/repos/{}/pulls?state=closed&base={}&per_page=100",
             self.name, self.base
-        );
-
-        let feature_url = format!(
-            "https://api.github.com/repos/{}/pulls?state=closed&base={}",
-            self.name, self.feature,
         );
 
         let mut base_pull_iter = PRIterator::for_addr(&base_url, Some(pred), config)?
             .filter_map(Result::ok)
             .peekable();
 
-        let mut feature_pull_iter = PRIterator::for_addr(&feature_url, None, config)?
-            .filter_map(Result::ok)
-            .peekable();
-
-        if base_pull_iter.peek().is_none() && feature_pull_iter.peek().is_none() {
+        if base_pull_iter.peek().is_none() {
             return Ok(());
         }
 
-        let mut pulls: Vec<Pull> = base_pull_iter.collect();
-        let mut feature_pulls: Vec<Pull> = feature_pull_iter.collect();
-        pulls.append(&mut feature_pulls);
+        let pulls: Vec<Pull> = base_pull_iter.collect();
 
         self.pulls = Some(pulls);
 
