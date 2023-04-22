@@ -38,8 +38,6 @@ pub struct Config {
     pub zoho_client_id: String,
     /// Client Secret for Zoho OAuth
     pub zoho_client_secret: String,
-    /// Preamble to be inserted before report, if any
-    pub preamble: String,
     /// Projects in Zoho
     #[serde(default)]
     pub zoho_projects: Vec<Project>,

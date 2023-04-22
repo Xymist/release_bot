@@ -24,27 +24,9 @@ use crate::zoho_bugs::{classify_actions, issue, merge_actions, task, write_actio
 use std::fmt::Write as _;
 use std::fs::File;
 use std::io::prelude::*;
+use std::process::Command;
 use std::sync::Arc;
 use std::thread;
-
-fn format_preamble(config: &Config) -> String {
-    let mut output: String = "".to_owned();
-    let milestone_list: Vec<String> = config
-        .zoho_projects
-        .iter()
-        .map(|p| p.milestones.join(", "))
-        .collect();
-    let milestones = milestone_list.join(", ");
-
-    write!(
-        output,
-        "{}\nThis includes development of the {} milestone(s).\n",
-        config.preamble, milestones
-    )
-    .unwrap();
-
-    output
-}
 
 fn format_projects(projects: Vec<Project>, config: &Config) -> Result<String> {
     let mut output: String = "".to_owned();
@@ -110,19 +92,42 @@ fn format_repos(repos: Vec<Repo>, config: &Config) -> String {
 }
 
 fn write_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Result<()> {
-    let mut file = File::create(format!(
-        "release-{}.md",
-        config.zoho_projects[0].milestones[0]
-    ))?;
+    let milestones = config.zoho_projects[0].milestones.join("-");
+    let path = format!("release-{}.md", milestones);
+    let mut file = File::create(&path)?;
 
-    let preamble = format_preamble(config);
     let project_data = format_projects(projects, config)?;
     let repo_data = format_repos(repos, config);
 
     file.write_fmt(format_args!(
-        "# Release {}\n\n{}{}{}\n",
-        config.zoho_projects[0].milestones[0], preamble, project_data, repo_data,
+        "# Release {}\n\n{}{}\n",
+        milestones, project_data, repo_data,
     ))?;
+
+    Command::new("pandoc")
+        .arg("-f")
+        .arg("markdown")
+        .arg("-t")
+        .arg("pdf")
+        .arg("-V")
+        .arg("margin-top=3")
+        .arg("-V")
+        .arg("margin-left=3")
+        .arg("-V")
+        .arg("margin-right=3")
+        .arg("-V")
+        .arg("margin-bottom=3")
+        .arg("--pdf-engine")
+        .arg("wkhtmltopdf")
+        .arg("--pdf-engine-opt")
+        .arg("--enable-local-file-access")
+        .arg("--css")
+        .arg("styles/pdf.css")
+        .arg("-o")
+        .arg(format!("release-{}.pdf", milestones))
+        .arg(path)
+        .output()
+        .expect("Failed to execute pandoc");
     Ok(())
 }
 
