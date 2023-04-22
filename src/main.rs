@@ -104,6 +104,25 @@ fn write_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Re
         milestones, project_data, repo_data,
     ))?;
 
+    generate_pdf(&milestones, &path)?;
+
+    Ok(())
+}
+
+// Convert markdown to pdf
+// Excuting pandoc with the following arguments:
+// -f markdown: input format
+// -t pdf: output format
+// -V margin-top=3: set the top margin to 3cm
+// -V margin-left=3: set the left margin to 3cm
+// -V margin-right=3: set the right margin to 3cm
+// -V margin-bottom=3: set the bottom margin to 3cm
+// --pdf-engine wkhtmltopdf: use wkhtmltopdf as the pdf engine
+// --pdf-engine-opt --enable-local-file-access: allow wkhtmltopdf to access local files
+// -c styles/pdf.css: use the css file in the styles directory
+// -o release-<milestones>.pdf: output to a file named release-<milestones>.pdf
+// <path>: the path to the markdown file
+fn generate_pdf(milestones: &str, path: &str) -> Result<()> {
     Command::new("pandoc")
         .arg("-f")
         .arg("markdown")
@@ -121,13 +140,13 @@ fn write_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Re
         .arg("wkhtmltopdf")
         .arg("--pdf-engine-opt")
         .arg("--enable-local-file-access")
-        .arg("--css")
+        .arg("-c")
         .arg("styles/pdf.css")
         .arg("-o")
         .arg(format!("release-{}.pdf", milestones))
         .arg(path)
-        .output()
-        .expect("Failed to execute pandoc");
+        .output()?;
+
     Ok(())
 }
 
