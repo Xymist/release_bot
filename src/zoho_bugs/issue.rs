@@ -1,5 +1,5 @@
-use crate::errors::*;
 use crate::zoho_bugs::{Action, MDCustomFilters, CLOSED_STATUSES};
+use color_eyre::{eyre::eyre, Result};
 use serde_derive::Deserialize;
 use zohohorrorshow::prelude::*;
 
@@ -24,7 +24,7 @@ pub fn build_list(client: &ZohoClient, milestone_names: &[String]) -> Result<Vec
         .filter(zoho_milestone::Filter::Status(Status::NotCompleted))
         .filter(zoho_milestone::Filter::DisplayType(DisplayType::All))
         .get()
-        .unwrap_or(None);
+        .map_err(|e| eyre!("Failed to retrieve Zoho Milestones: {e}"))?;
 
     if maybe_milestones.is_none() {
         return Ok(Vec::new());

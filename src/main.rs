@@ -7,17 +7,16 @@
     clippy::all,
     dead_code
 )]
+#![feature(once_cell_try)]
 
 //! This crate is a documentation generation crate for single releases of Market Dojo; it accesses both
 //! GitHub and the Zoho Projects API to retrieve data.
 
 mod config;
-mod errors;
 mod pull_list;
 mod zoho_bugs;
 
 use crate::config::{Config, Project};
-use crate::errors::*;
 use crate::pull_list::{format_repo, repo::Repo};
 use crate::zoho_bugs::{classify_actions, issue, merge_actions, task, write_actions, zh_client};
 
@@ -28,6 +27,11 @@ use std::process::Command;
 use std::sync::Arc;
 use std::thread;
 
+use color_eyre::{
+    eyre::{eyre, WrapErr},
+    Result,
+};
+
 fn format_projects(projects: Vec<Project>, config: &Config) -> Result<String> {
     let mut output: String = "".to_owned();
     for project in projects {
@@ -36,7 +40,7 @@ fn format_projects(projects: Vec<Project>, config: &Config) -> Result<String> {
             "\n## Closed Tickets and Tasks for {}\n\n",
             project.name
         )
-        .unwrap();
+        .wrap_err("Failed to write title text to output string")?;
 
         let client = Arc::new(zh_client(&project, config)?);
         let sync_project = Arc::new(project.clone());
@@ -56,39 +60,41 @@ fn format_projects(projects: Vec<Project>, config: &Config) -> Result<String> {
 
         let tasks = task_thread
             .join()
-            .expect("Task list builder thread panicked: ")
-            .expect("Task list builder failed to find any tasks: ");
+            .map_err(|_| eyre!("Task list builder thread panicked"))??;
         let issues = issue_thread
             .join()
-            .expect("Issue list builder thread panicked: ")
-            .expect("Issue list builder failed to find any issues: ");
+            .map_err(|_| eyre!("Issue list builder thread panicked"))??;
 
         output.push_str(&write_actions(merge_actions(
             classify_actions(tasks),
             classify_actions(issues),
-        )));
+        ))?);
     }
 
     Ok(output)
 }
 
-fn format_repos(repos: Vec<Repo>, config: &Config) -> String {
+fn format_repos(repos: Vec<Repo>, config: &Config) -> Result<String> {
     let mut output: String = "".to_owned();
     let mut children = Vec::new();
     let sync_config = Arc::new(config.clone());
 
     for repo in repos.into_iter() {
         let conf = Arc::clone(&sync_config);
-        children.push(thread::spawn(move || -> String {
+        children.push(thread::spawn(move || -> Result<String> {
             format_repo(repo, &conf)
         }));
     }
 
     for child in children {
-        output.push_str(&child.join().expect("Repo formatting thread failed: "));
+        output.push_str(
+            &child
+                .join()
+                .map_err(|_| eyre!("Repo formatting thread failed"))??,
+        );
     }
 
-    output
+    Ok(output)
 }
 
 fn write_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Result<()> {
@@ -97,7 +103,7 @@ fn write_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Re
     let mut file = File::create(&path)?;
 
     let project_data = format_projects(projects, config)?;
-    let repo_data = format_repos(repos, config);
+    let repo_data = format_repos(repos, config)?;
 
     file.write_fmt(format_args!(
         "# Release {}\n\n{}{}\n",
@@ -151,7 +157,7 @@ fn generate_pdf(milestones: &str, path: &str) -> Result<()> {
 }
 
 fn run() -> Result<i32> {
-    let config = config::parse_config("./config.toml");
+    let config = config::parse_config("./config.toml")?;
     let repos = config.repos.clone();
     let projects = config.zoho_projects.clone();
 

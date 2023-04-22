@@ -1,21 +1,22 @@
 use crate::pull_list::repo::Repo;
+use color_eyre::{eyre::WrapErr, Result};
 use serde_derive::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-pub fn parse_config(path: &str) -> Config {
+pub fn parse_config(path: &str) -> Result<Config> {
     let mut config_toml = String::new();
     let parsed_path = Path::new(path)
         .canonicalize()
-        .expect("Failed to parse path to config file");
+        .wrap_err("Failed to parse path to config file")?;
 
-    let mut file = File::open(parsed_path).expect("Could not find config file: ");
+    let mut file = File::open(parsed_path).wrap_err("Could not find config file: ")?;
 
     file.read_to_string(&mut config_toml)
-        .expect("Error while reading config: ");
+        .wrap_err("Error while reading config: ")?;
 
-    toml::from_str(&config_toml).expect("Error while deserializing config: ")
+    toml::from_str(&config_toml).wrap_err("Error while deserializing config: ")
 }
 
 #[derive(Deserialize, Clone, Debug)]

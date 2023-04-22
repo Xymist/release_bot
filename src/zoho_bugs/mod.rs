@@ -2,10 +2,10 @@ pub mod issue;
 pub mod task;
 
 use crate::config::{Config, Project};
-use crate::errors::*;
-use once_cell::sync::Lazy;
+use color_eyre::{eyre::eyre, Result};
 use regex::Regex;
 use std::fmt::Write as _;
+use std::sync::OnceLock;
 use zohohorrorshow::prelude::*;
 
 // Flagging issues and tasks as closed uses custom fields, which are not necessarily consistently
@@ -13,7 +13,7 @@ use zohohorrorshow::prelude::*;
 // the ticket as it stands.
 pub const CLOSED_STATUSES: &[&str] = &["tested on staging", "tested on live", "closed"];
 
-static QUOTES: Lazy<Regex> = Lazy::new(|| Regex::new("[`'’\"]").expect("Failed to compile Regex"));
+static QUOTES: OnceLock<Regex> = OnceLock::new();
 
 // Filters which are required for this application but which ZohoHorrorshow does not provide since
 // they are dependent on factors defined in MD's Zoho Project settings
@@ -112,22 +112,25 @@ impl Action {
 
     // Format the relevant parts of an action into a pipe-delimited string, for writing to a
     // Markdown document; this format is intended to produce a table.
-    pub fn display(&self) -> String {
+    pub fn display(&self) -> Result<String> {
+        let rgx = QUOTES.get_or_try_init(|| -> std::result::Result<Regex, regex::Error> {
+            Regex::new("[`'’\"]")
+        })?;
         match self {
-            Action::ZIssue(issue) => format!(
+            Action::ZIssue(issue) => Ok(format!(
                 "| [{}] {} | {} | {} |",
                 issue.0.key,
-                QUOTES.replace_all(&issue.0.title, ""),
+                rgx.replace_all(&issue.0.title, ""),
                 issue.0.issue_type(),
                 issue.0.reported_person
-            ),
-            Action::ZTask(task) => format!(
+            )),
+            Action::ZTask(task) => Ok(format!(
                 "| [{}] {} | {} | {} |",
                 task.0.key,
-                QUOTES.replace_all(&task.0.name, ""),
+                rgx.replace_all(&task.0.name, ""),
                 task.0.issue_type(),
                 task.0.created_person
-            ),
+            )),
         }
     }
 }
@@ -178,9 +181,11 @@ impl ClassifiedActions {
 pub fn zh_client(project: &Project, config: &Config) -> Result<ZohoClient> {
     let client = ZohoClient::new(&config.zoho_client_id, &config.zoho_client_secret);
 
-    Ok(client
-        .set_portal(&config.zoho_portal_name)?
-        .set_project(&project.name)?)
+    client
+        .set_portal(&config.zoho_portal_name)
+        .map_err(|e| eyre!("Could not set portal: {}", e))?
+        .set_project(&project.name)
+        .map_err(|e| eyre!("Could not set project: {}", e))
 }
 
 // Given a Vec of either Issues or Tasks, partition them by type
@@ -231,7 +236,7 @@ pub fn merge_actions(
 
 // Assembles a string representing the contents of a Markdown file reporting on the contents of a
 // set of ClassifiedActions, for later printing or display.
-pub fn write_actions(client_list: ClassifiedActions) -> String {
+pub fn write_actions(client_list: ClassifiedActions) -> Result<String> {
     let sorted_tickets = client_list.sort();
 
     let mut output: String = "### Client Bugs and Features\n".to_owned();
@@ -245,7 +250,7 @@ pub fn write_actions(client_list: ClassifiedActions) -> String {
         write!(
             output,
             "\n{} {} |",
-            client_bug.bug.display(),
+            client_bug.bug.display()?,
             client_bug.clients.join(";")
         )
         .unwrap();
@@ -257,7 +262,7 @@ pub fn write_actions(client_list: ClassifiedActions) -> String {
 
     for feature in sorted_tickets.features {
         // This is infallible - unwrap here is safe.
-        write!(output, "\n{}", feature.display()).unwrap();
+        write!(output, "\n{}", feature.display()?).unwrap();
     }
 
     output.push_str(
@@ -266,8 +271,8 @@ pub fn write_actions(client_list: ClassifiedActions) -> String {
 
     for other in sorted_tickets.others {
         // This is infallible - unwrap here is safe.
-        write!(output, "\n{}", other.display()).unwrap();
+        write!(output, "\n{}", other.display()?).unwrap();
     }
 
-    output
+    Ok(output)
 }

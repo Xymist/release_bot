@@ -16,7 +16,7 @@ impl fmt::Display for Release {
         write!(
             f,
             "{}, published {}",
-            self.name.as_ref().expect("Release had no name"),
+            self.name.as_ref().ok_or(fmt::Error)?,
             self.created_at
         )
     }

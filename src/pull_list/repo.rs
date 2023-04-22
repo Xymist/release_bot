@@ -1,9 +1,9 @@
-use crate::errors::*;
 use crate::pull_list::pr_iterator::PRIterator;
 use crate::pull_list::predicate::Predicate;
 use crate::pull_list::pull::Pull;
 use crate::pull_list::release::Release;
 use crate::Config;
+use color_eyre::{eyre::eyre, Result};
 use reqwest;
 use serde_derive::Deserialize;
 use std::fmt;
@@ -23,9 +23,7 @@ impl fmt::Display for Repo {
             f,
             "\n\n## Closed Pull Requests for {}\n\n### Last Release: {}",
             self.name,
-            self.last_release
-                .as_ref()
-                .expect("Last release not present for repo; has it been initialized?")
+            self.last_release.as_ref().ok_or(fmt::Error)?
         )
     }
 }
@@ -80,7 +78,7 @@ impl Repo {
         let pred = Predicate::from_release(
             self.last_release
                 .as_ref()
-                .expect("Repo has no last release; has it been initialized?"),
+                .ok_or_else(|| eyre!("Repo has no last release; has it been initialized?"))?,
         )?;
 
         let base_url = format!(

@@ -1,7 +1,7 @@
-use crate::errors::*;
 use crate::pull_list::pull::Pull;
 use crate::pull_list::release::Release;
 use chrono::NaiveDate;
+use color_eyre::Result;
 
 pub struct Predicate {
     since: Option<NaiveDate>,

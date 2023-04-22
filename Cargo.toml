@@ -7,19 +7,18 @@ description = "Application for generating Market Dojo release notes."
 homepage = "https://github.com/Xymist/release_bot"
 repository = "https://github.com/Xymist/release_bot"
 license = "MIT"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-failure = "0.1.6"
 reqwest = "0.9.22"
 serde = "1.0.103"
 serde_derive = "1.0.103"
 Inflector = "0.11.4"
 toml = "0.5.5"
 regex = "1.3.1"
-once_cell = "1.2.0"
 pretty_env_logger = "0.4.0"
 log = "0.4.8"
+color-eyre = "0.6.2"
 
 [dependencies.zohohorrorshow]
 version = "0.7.7"

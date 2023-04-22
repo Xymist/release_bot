@@ -1,7 +1,7 @@
-use crate::errors::*;
 use crate::pull_list::predicate::Predicate;
 use crate::pull_list::pull::Pull;
 use crate::Config;
+use color_eyre::{eyre::eyre, Result};
 
 pub struct PRIterator {
     pub items: <Vec<Pull> as IntoIterator>::IntoIter,
@@ -31,7 +31,10 @@ impl PRIterator {
             return Ok(None);
         }
 
-        let url = self.next_link.take().unwrap();
+        let url = self
+            .next_link
+            .take()
+            .ok_or_else(|| eyre!("Failed to retrieve 'next' link in GitHub API"))?;
         let mut req = self.client.get(&url);
 
         req = req.header(
@@ -51,21 +54,7 @@ impl PRIterator {
         if returned_items.len() == 100 {
             // The response that GitHub's API will give is limited to a few PRs;
             // a header is attached with the url of the next set.
-            self.next_link = response
-                .headers()
-                .get_all(reqwest::header::LINK)
-                .iter()
-                .map(reqwest::header::HeaderValue::to_str)
-                .map(std::result::Result::unwrap)
-                .flat_map(|h| h.split(','))
-                .find(|rel| rel.contains("rel=\"next\""))
-                .map(|rel| {
-                    rel.split(';')
-                        .next()
-                        .unwrap()
-                        .trim_matches(['<', '>'].as_ref())
-                        .to_owned()
-                });
+            self.next_link = extract_next_link(&response)?;
         }
 
         let item_iter = returned_items.into_iter();
@@ -81,6 +70,29 @@ impl PRIterator {
 
         Ok(self.items.next())
     }
+}
+
+fn extract_next_link(response: &reqwest::Response) -> Result<Option<String>> {
+    let next_header = response
+        .headers()
+        .get_all(reqwest::header::LINK)
+        .iter()
+        .map(reqwest::header::HeaderValue::to_str)
+        .filter(std::result::Result::is_ok)
+        .flat_map(|h| h.unwrap().split(','))
+        .find(|rel| rel.contains("rel=\"next\""));
+
+    match next_header {
+        Some(next_header) => Ok(parse_next_link(next_header)),
+        None => Ok(None),
+    }
+}
+
+fn parse_next_link(next_header: &str) -> Option<String> {
+    next_header
+        .split(';')
+        .next()
+        .map(|s| s.trim_matches(['<', '>'].as_ref()).to_owned())
 }
 
 impl Iterator for PRIterator {
