@@ -15,13 +15,11 @@ use std::fmt::Write;
 // TODO: This should take a parameter repo list so that Main can use it
 // properly.
 pub fn format_repo(mut repo: Repo, config: &Config) -> Result<String> {
-    let mut output: String = "".to_owned();
-
     if repo.construct(config).is_err() {
         return Err(eyre!("Failed to construct repo {} from config", repo.name));
     };
 
-    output = format!("{}", repo);
+    let mut output = format!("{}", repo);
 
     if repo.pulls.is_some() {
         output.push_str("\n| Pull Request | Contributor |\n| --- | --- |");

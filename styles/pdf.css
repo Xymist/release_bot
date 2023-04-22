@@ -130,6 +130,7 @@ code {
 	page-break-after: always;
 }
 
-table, tr, td, th, tbody, thead, tfoot {
+/* table, tr, td, th, tbody, thead, tfoot { */
+tr, td, th {
   page-break-inside: avoid !important;
 }

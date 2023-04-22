@@ -35,6 +35,7 @@ pub fn build_list(client: &ZohoClient, milestones: &[String]) -> Result<Vec<Acti
 
     let closed_tasks: Vec<Action> = client
         .tasks()
+        .with_subtasks()
         .iter_get()
         .filter(std::result::Result::is_ok)
         .map(std::result::Result::unwrap)

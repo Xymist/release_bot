@@ -2,4 +2,4 @@
 /target/
 **/*.rs.bk
 config.toml
-release-*.md
+release-*.*

@@ -2071,8 +2071,7 @@ dependencies = [
 [[package]]
 name = "zohohorrorshow"
 version = "0.7.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8877010a62e90750de75e5a9b240de9ec76d5966e72ed24ca255fe6b972304aa"
+source = "git+https://github.com/Xymist/zohohorrorshow#7d477ee6454c4d887a027f678cbe2925e68f64b6"
 dependencies = [
  "chrono",
  "failure",

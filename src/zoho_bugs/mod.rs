@@ -239,39 +239,57 @@ pub fn merge_actions(
 pub fn write_actions(client_list: ClassifiedActions) -> Result<String> {
     let sorted_tickets = client_list.sort();
 
-    let mut output: String = "### Client Bugs and Features\n".to_owned();
+    let mut output = String::new();
 
-    output.push_str(
-        "\n| Ticket Name | Ticket Type | Raised By | Clients |\n| --- | --- | --- | --- |",
-    );
+    let client_bugs = sorted_tickets.client_bugs;
 
-    for client_bug in &sorted_tickets.client_bugs {
-        // This is infallible - unwrap here is safe.
-        write!(
-            output,
-            "\n{} {} |",
-            client_bug.bug.display()?,
-            client_bug.clients.join(";")
-        )
-        .unwrap();
+    if client_bugs.is_empty() {
+        output.push_str("\nNo client bugs or features to report on this Sprint.\n");
+    } else {
+        output.push_str(
+            "### Client Bugs and Features\n\n| Ticket Name | Ticket Type | Raised By | Clients |\n| --- | --- | --- | --- |",
+        );
+
+        for client_bug in &client_bugs {
+            // This is infallible - unwrap here is safe.
+            write!(
+                output,
+                "\n{} {} |",
+                client_bug.bug.display()?,
+                client_bug.clients.join(";")
+            )
+            .unwrap();
+        }
     }
 
-    output.push_str(
-        "\n\n### Features and Enhancements\n\n| Ticket Name | Ticket Type | Raised By |\n| --- | --- | --- |",
-    );
+    let features = sorted_tickets.features;
 
-    for feature in sorted_tickets.features {
-        // This is infallible - unwrap here is safe.
-        write!(output, "\n{}", feature.display()?).unwrap();
+    if features.is_empty() {
+        output.push_str("\n\nNo new features or enhancements to report on this Sprint.\n");
+    } else {
+        output.push_str(
+            "\n\n### Features and Enhancements\n\n| Ticket Name | Ticket Type | Raised By |\n| --- | --- | --- |",
+        );
+
+        for feature in &features {
+            // This is infallible - unwrap here is safe.
+            write!(output, "\n{}", feature.display()?).unwrap();
+        }
     }
 
-    output.push_str(
-        "\n\n### Other Bugs\n\n| Ticket Name | Ticket Type | Raised By |\n| --- | --- | --- |",
-    );
+    let others = sorted_tickets.others;
 
-    for other in sorted_tickets.others {
-        // This is infallible - unwrap here is safe.
-        write!(output, "\n{}", other.display()?).unwrap();
+    if others.is_empty() {
+        output.push_str("\n\nNo other bugs or QA concerns to report on this Sprint.\n");
+    } else {
+        output.push_str(
+            "\n\n### Other Bugs\n\n| Ticket Name | Ticket Type | Raised By |\n| --- | --- | --- |",
+        );
+
+        for other in &others {
+            // This is infallible - unwrap here is safe.
+            write!(output, "\n{}", other.display()?).unwrap();
+        }
     }
 
     Ok(output)
