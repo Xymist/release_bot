@@ -29,7 +29,7 @@ impl Default for Release {
             name: Some(String::from("First Commit")),
             tag_name: None,
             body: None,
-            created_at: Utc.ymd(2001, 1, 1).and_hms(0, 0, 0),
+            created_at: Utc.with_ymd_and_hms(2001, 1, 1, 0, 0, 0).unwrap(),
         }
     }
 }

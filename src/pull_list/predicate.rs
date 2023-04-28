@@ -10,12 +10,12 @@ pub struct Predicate {
 impl Predicate {
     pub fn from_release(release: &Release) -> Result<Predicate> {
         Ok(Predicate {
-            since: Some(release.created_at.date().naive_utc()),
+            since: Some(release.created_at.date_naive()),
         })
     }
 
     pub fn test(&self, pull: &Pull) -> bool {
-        let pull_closed = pull.closed_at.date().naive_utc();
+        let pull_closed = pull.closed_at.date_naive();
         self.since.map(|v| pull_closed > v).unwrap_or(true) && pull.user.login != "dependabot[bot]"
     }
 }
