@@ -11,18 +11,18 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            asset_name: release_bot-linux-amd64
+            asset_name: linux-amd64
           - os: macos-latest
-            asset_name: release_bot-macos-amd64
+            asset_name: macos-amd64
     name: Publish binaries for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@nightly
         with:
           toolchain: nightly
-          override: true
+          components: rustfmt, clippy
       - name: Test
         run: cargo test
       - name: Build
@@ -34,6 +34,6 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/release/release_bot
-          asset_name: ${{ matrix.asset_name }}
+          asset_name: release_bot-${{ github.ref }}-${{ matrix.asset_name }}
           tag: ${{ github.ref }}
           overwrite: true

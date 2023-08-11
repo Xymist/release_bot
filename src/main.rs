@@ -27,6 +27,8 @@ use std::process::Command;
 use std::sync::Arc;
 use std::thread;
 
+use tracing::error;
+
 use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
@@ -167,7 +169,7 @@ fn run() -> Result<i32> {
 }
 
 fn main() {
-    pretty_env_logger::init();
+    tracing_subscriber::fmt::init();
 
     ::std::process::exit(match run() {
         Ok(_) => {
@@ -175,7 +177,7 @@ fn main() {
             0
         }
         Err(err) => {
-            eprintln!("Error occurred while running: {:?}", err);
+            error!("Error occurred while running: {:?}", err);
             1
         }
     });
