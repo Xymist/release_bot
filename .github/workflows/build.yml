@@ -34,6 +34,6 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/release/release_bot
-          asset_name: release_bot-${{ github.ref }}-${{ matrix.asset_name }}
-          tag: ${{ github.ref }}
+          asset_name: release-bot-${{ github.ref_name }}-${{ matrix.asset_name }}
+          tag: ${{ github.ref_name }}
           overwrite: true
