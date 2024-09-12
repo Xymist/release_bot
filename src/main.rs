@@ -1,120 +1,235 @@
-#![warn(missing_docs)]
 #![deny(
     unused_imports,
     rust_2018_idioms,
     rust_2018_compatibility,
     unsafe_code,
-    clippy::all,
-    dead_code
+    clippy::all
 )]
-#![feature(once_cell_try)]
 
-//! This crate is a documentation generation crate for single releases of Market Dojo; it accesses both
-//! GitHub and the Zoho Projects API to retrieve data.
+//! This crate is a documentation generation crate for single releases of Market Dojo.
 
-mod config;
-mod pull_list;
-mod zoho_bugs;
+mod regex;
 
-use crate::config::{Config, Project};
-use crate::pull_list::{format_repo, repo::Repo};
-use crate::zoho_bugs::{classify_actions, issue, merge_actions, task, write_actions, zh_client};
-
-use std::fmt::Write as _;
-use std::fs::File;
-use std::io::prelude::*;
-use std::process::Command;
-use std::sync::Arc;
-use std::thread;
-
+use clap::Parser;
+use color_eyre::{Report, Result};
+use octocrab::Octocrab;
+use regex::{client_regexp, feature_regexp, module_regexp};
+use std::{collections::HashMap, io::Write, process::Command};
+use tokio::sync::OnceCell;
 use tracing::error;
 
-use color_eyre::{
-    eyre::{eyre, WrapErr},
-    Result,
-};
-
-fn format_projects(projects: Vec<Project>, config: &Config) -> Result<String> {
-    let mut output: String = "".to_owned();
-    for project in projects {
-        write!(
-            output,
-            "\n## Closed Tickets and Tasks for {}\n\n",
-            project.name
-        )
-        .wrap_err("Failed to write title text to output string")?;
-
-        let client = Arc::new(zh_client(&project, config)?);
-        let sync_project = Arc::new(project.clone());
-
-        let task_client = Arc::clone(&client);
-        let task_project = Arc::clone(&sync_project);
-
-        let issue_client = Arc::clone(&client);
-        let issue_project = Arc::clone(&sync_project);
-
-        let task_thread = thread::spawn(move || -> Result<Vec<zoho_bugs::Action>> {
-            task::build_list(&task_client, &task_project.milestones)
-        });
-        let issue_thread = thread::spawn(move || -> Result<Vec<zoho_bugs::Action>> {
-            issue::build_list(&issue_client, &issue_project.milestones)
-        });
-
-        let tasks = task_thread
-            .join()
-            .map_err(|_| eyre!("Task list builder thread panicked"))??;
-        let issues = issue_thread
-            .join()
-            .map_err(|_| eyre!("Issue list builder thread panicked"))??;
-
-        output.push_str(&write_actions(merge_actions(
-            classify_actions(tasks),
-            classify_actions(issues),
-        ))?);
-    }
-
-    Ok(output)
+static CLIENT: OnceCell<Octocrab> = OnceCell::const_new();
+fn client() -> &'static Octocrab {
+    CLIENT.get().expect("Client not initialized")
 }
 
-fn format_repos(repos: Vec<Repo>, config: &Config) -> Result<String> {
-    let mut output: String = "".to_owned();
-    let mut children = Vec::new();
-    let sync_config = Arc::new(config.clone());
-
-    for repo in repos.into_iter() {
-        let conf = Arc::clone(&sync_config);
-        children.push(thread::spawn(move || -> Result<String> {
-            format_repo(repo, &conf)
-        }));
-    }
-
-    for child in children {
-        output.push_str(
-            &child
-                .join()
-                .map_err(|_| eyre!("Repo formatting thread failed"))??,
-        );
-    }
-
-    Ok(output)
+#[derive(Parser, Debug)]
+#[command(version, about)]
+struct Args {
+    #[clap(short, long)]
+    milestone: String,
+    #[clap(short, long, env = "GITHUB_TOKEN")]
+    token: String,
 }
 
-fn write_output(config: &Config, projects: Vec<Project>, repos: Vec<Repo>) -> Result<()> {
-    let milestones = config.zoho_projects[0].milestones.join("-");
-    let path = format!("release-{}.md", milestones);
-    let mut file = File::create(&path)?;
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+    let args = Args::parse();
 
-    let project_data = format_projects(projects, config)?;
-    let repo_data = format_repos(repos, config)?;
+    let _ = CLIENT
+        .get_or_try_init(|| async {
+            Ok::<Octocrab, Report>(Octocrab::builder().personal_token(args.token).build()?)
+        })
+        .await;
 
-    file.write_fmt(format_args!(
-        "# Release {}\n\n{}{}\n",
-        milestones, project_data, repo_data,
-    ))?;
+    ::std::process::exit(match run(args.milestone.as_ref()).await {
+        Ok(_) => {
+            println!("Goodbye");
+            0
+        }
+        Err(err) => {
+            error!("Error occurred while running: {:?}", err);
+            1
+        }
+    });
+}
 
-    generate_pdf(&milestones, &path)?;
+fn duration_to_string(duration: chrono::Duration) -> String {
+    let mut components = Vec::new();
+    let years = duration.num_days() / 365;
+    let months = (duration.num_days() % 365) / 30;
+    let weeks = (duration.num_days() % 30) / 7;
+    let days = duration.num_days() % 7;
+    let hours = duration.num_hours() % 24;
 
-    Ok(())
+    if years > 0 {
+        components.push(format!("{} years", years));
+    }
+
+    if months > 0 {
+        components.push(format!("{} months", months));
+    }
+
+    if weeks > 0 {
+        components.push(format!("{} weeks", weeks));
+    }
+
+    if days > 0 {
+        components.push(format!("{} days", days));
+    }
+
+    if hours > 0 {
+        components.push(format!("{} hours", hours));
+    }
+
+    components.join(", ")
+}
+
+#[derive(Default)]
+struct IssueData {
+    client_requests: Vec<String>,
+    features: Vec<String>,
+    bugfixes: Vec<String>,
+    total_count: usize,
+    average_lifetime: String,
+    #[allow(dead_code)]
+    module_stats: HashMap<String, i64>,
+}
+
+async fn fetch_issues(milestone: &str, repo: &str) -> Result<IssueData> {
+    let issues = client()
+        .search()
+        .issues_and_pull_requests(&format!(
+            "milestone:{} repo:marketdojo/{} is:closed is:issue",
+            milestone, repo
+        ))
+        .send()
+        .await?
+        .into_iter();
+
+    let mut client_items = Vec::new();
+    let mut feature_items = Vec::new();
+    let mut bugfix_items = Vec::new();
+    let total_count = issues.len();
+    let mut module_stats = HashMap::new();
+    let average_lifetime = issues
+        .clone()
+        .filter_map(|issue| {
+            issue.closed_at.and_then(|closed_at| {
+                closed_at
+                    .timestamp()
+                    .checked_sub(issue.created_at.timestamp())
+            })
+        })
+        .sum::<i64>()
+        / total_count as i64;
+
+    for issue in issues {
+        let title = issue.title.clone();
+        let body = issue.body.unwrap_or_default();
+        let client_details = client_regexp().await?.captures(&body).and_then(|c| {
+            c.get(2)
+                .filter(|m| m.as_str() != "_No response_")
+                .map(|m| m.as_str())
+        });
+        let module_details = module_regexp()
+            .await?
+            .captures(&body)
+            .and_then(|c| {
+                c.get(2)
+                    .filter(|m| m.as_str() != "_No response_")
+                    .map(|m| m.as_str())
+            })
+            .unwrap_or("Unknown");
+        let feature = feature_regexp().await?.is_match(&title);
+        let modules = module_details.split(", ");
+        for module in modules {
+            *module_stats.entry(module.to_string()).or_insert(0) += 1;
+        }
+
+        if let Some(details) = client_details {
+            client_items.push(format!(
+                "| #{} | {} | {} | {} | {} |",
+                issue.number, issue.title, issue.user.login, module_details, details
+            ));
+        } else if feature {
+            feature_items.push(format!(
+                "| #{} | {} | {} | {} |",
+                issue.number, issue.title, issue.user.login, module_details,
+            ));
+        } else {
+            bugfix_items.push(format!(
+                "| #{} | {} | {} | {} |",
+                issue.number, issue.title, issue.user.login, module_details,
+            ));
+        }
+    }
+
+    Ok(IssueData {
+        client_requests: client_items,
+        features: feature_items,
+        bugfixes: bugfix_items,
+        average_lifetime: duration_to_string(chrono::Duration::seconds(average_lifetime)),
+        total_count,
+        module_stats,
+    })
+}
+
+#[derive(Default)]
+struct PrStats {
+    total_count: usize,
+    average_lifetime: String,
+}
+
+async fn pr_stats(milestone: &str, repo: &str) -> Result<PrStats> {
+    let pulls = client()
+        .search()
+        .issues_and_pull_requests(&format!(
+            "milestone:{} repo:marketdojo/{} is:closed is:pr",
+            milestone, repo
+        ))
+        .send()
+        .await?
+        .into_iter();
+    let len = pulls.len();
+
+    let mut stats = PrStats {
+        total_count: len,
+        average_lifetime: "".to_string(),
+    };
+
+    let average_lifetime = pulls
+        .filter_map(|pr| {
+            pr.closed_at
+                .and_then(|closed_at| closed_at.timestamp().checked_sub(pr.created_at.timestamp()))
+        })
+        .sum::<i64>()
+        / len as i64;
+
+    stats.average_lifetime = duration_to_string(chrono::Duration::seconds(average_lifetime));
+
+    Ok(stats)
+}
+
+async fn construct_report(version: &str, release_date: &str) -> String {
+    let issues = fetch_issues(version, "auction").await.unwrap_or_default();
+    let pr_stats = pr_stats(version, "auction").await.unwrap_or_default();
+
+    std::fmt::format(format_args!(
+        include_str!("report_format.md.tmpl"),
+        version = version,
+        release_date = release_date,
+        n_tickets = issues.total_count,
+        n_prs = pr_stats.total_count,
+        n_features = issues.features.len(),
+        n_bugfixes = issues.bugfixes.len(),
+        client_request_table = issues.client_requests.join("\n"),
+        feature_table = issues.features.join("\n"),
+        bugfix_table = issues.bugfixes.join("\n"),
+        avg_lifetime = issues.average_lifetime,
+        avg_pr_lifetime = pr_stats.average_lifetime
+    ))
 }
 
 // Convert markdown to pdf
@@ -158,27 +273,18 @@ fn generate_pdf(milestones: &str, path: &str) -> Result<()> {
     Ok(())
 }
 
-fn run() -> Result<i32> {
-    let config = config::parse_config("./config.toml")?;
-    let repos = config.repos.clone();
-    let projects = config.zoho_projects.clone();
-
-    write_output(&config, projects, repos)?;
+async fn run(milestone: &str) -> Result<i32> {
+    let path = format!("release-{}.md", milestone);
+    let mut file = std::fs::File::create(&path)?;
+    file.write_all(
+        construct_report(
+            milestone,
+            chrono::Utc::now().date_naive().to_string().as_str(),
+        )
+        .await
+        .as_bytes(),
+    )?;
+    generate_pdf(milestone, &path)?;
 
     Ok(0)
-}
-
-fn main() {
-    tracing_subscriber::fmt::init();
-
-    ::std::process::exit(match run() {
-        Ok(_) => {
-            println!("Goodbye");
-            0
-        }
-        Err(err) => {
-            error!("Error occurred while running: {:?}", err);
-            1
-        }
-    });
 }
