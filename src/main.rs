@@ -14,7 +14,12 @@ use clap::Parser;
 use color_eyre::{Report, Result};
 use octocrab::Octocrab;
 use regex::{client_regexp, feature_regexp, module_regexp};
-use std::{collections::HashMap, io::Write, process::Command};
+use std::{
+    collections::HashMap,
+    fs::{DirBuilder, File},
+    io::Write,
+    process::Command,
+};
 use tokio::sync::OnceCell;
 use tracing::error;
 
@@ -266,7 +271,7 @@ fn generate_pdf(milestones: &str, path: &str) -> Result<()> {
         .arg("-c")
         .arg("styles/pdf.css")
         .arg("-o")
-        .arg(format!("release-{}.pdf", milestones))
+        .arg(format!("releases/release-{}.pdf", milestones))
         .arg(path)
         .output()?;
 
@@ -274,8 +279,11 @@ fn generate_pdf(milestones: &str, path: &str) -> Result<()> {
 }
 
 async fn run(milestone: &str) -> Result<i32> {
-    let path = format!("release-{}.md", milestone);
-    let mut file = std::fs::File::create(&path)?;
+    let dir_path = "releases";
+    DirBuilder::new().recursive(true).create(dir_path)?;
+    let path = format!("releases/release-{}.md", milestone);
+    let mut file = File::create(&path)?;
+
     file.write_all(
         construct_report(
             milestone,
