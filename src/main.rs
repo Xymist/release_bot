@@ -132,19 +132,19 @@ async fn fetch_issues(milestone: &str, repo: &str) -> Result<IssueData> {
 
     for issue in issues {
         let title = issue.title.clone();
-        let body = issue.body.unwrap_or_default();
+        let body = issue.body.unwrap_or_default().replace("\r\n", "\n");
         let client_details = client_regexp().await?.captures(&body).and_then(|c| {
             c.get(2)
-                .filter(|m| m.as_str() != "_No response_")
                 .map(|m| m.as_str())
+                .filter(|m| *m != "_No response_" && !m.trim().is_empty())
         });
         let module_details = module_regexp()
             .await?
             .captures(&body)
             .and_then(|c| {
                 c.get(2)
-                    .filter(|m| m.as_str() != "_No response_")
                     .map(|m| m.as_str())
+                    .filter(|m| *m != "_No response_" && !m.trim().is_empty())
             })
             .unwrap_or("Unknown");
         let feature = feature_regexp().await?.is_match(&title);
