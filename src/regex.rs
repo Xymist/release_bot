@@ -1,5 +1,5 @@
 use color_eyre::{Report, Result};
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use tokio::sync::OnceCell;
 
 static CLIENT_REGEXP: OnceCell<Regex> = OnceCell::const_new();
@@ -9,9 +9,14 @@ static MODULE_REGEXP: OnceCell<Regex> = OnceCell::const_new();
 pub async fn client_regexp() -> Result<&'static Regex> {
     CLIENT_REGEXP
         .get_or_try_init(|| async {
-            Ok::<Regex, Report>(Regex::new(
-                r"### Have any clients (encountered|requested) this\?\n+(.*?)\n+###",
-            )?)
+            Ok::<Regex, Report>(
+                RegexBuilder::new(
+                    r"### Have any clients (encountered|requested) this\?\n+(.*?)\n+###",
+                )
+                .dot_matches_new_line(true)
+                .build()
+                .unwrap(),
+            )
         })
         .await
 }

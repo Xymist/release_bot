@@ -172,7 +172,11 @@ async fn fetch_issues(milestone: &str, repo: &str) -> Result<IssueData> {
         if let Some(details) = client_details {
             client_items.push(format!(
                 "| #{} | {} | {} | {} | {} |",
-                issue.number, issue.title, issue.user.login, module_details, details
+                issue.number,
+                issue.title,
+                issue.user.login,
+                module_details,
+                details.replace('\n', ", ")
             ));
         } else if feature {
             feature_items.push(format!(
