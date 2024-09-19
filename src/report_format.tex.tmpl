@@ -1,0 +1,64 @@
+\documentclass{{article}}
+\usepackage{{geometry, verbatimbox}}
+\geometry{{a4paper, left=1cm, right=1cm, top=2cm, bottom=2cm}}
+\title{{Market Dojo v{version}}}
+\author{{Market Dojo}}
+\date{{\today}}
+\begin{{document}}
+   \maketitle
+   \section{{Client Requested Changes}}
+    Work in this section is based on client requests. This may include new features, enhancements, or bug fixes.
+    CS and Sales teams please review this section to ensure that the requested changes have been implemented,
+    and let the client know that their request has been fulfilled.
+
+    \begin{{tabular}}{{|c|p{{9cm}}|p{{2.5cm}}|p{{3cm}}|}}
+        \hline
+        \textbf{{Ticket ID}} & \textbf{{Ticket Name}} & \textbf{{Client Names}} & \textbf{{Module}} \\
+        \hline
+        {client_request_table} \\
+        \hline
+    \end{{tabular}}
+
+    \section{{Features and Enhancements}}
+    Work in this section fulfils internal requests or is project work.
+
+    \begin{{tabular}}{{|c|p{{9cm}}|c|p{{3cm}}|}}
+        \hline
+        \textbf{{Ticket ID}} & \textbf{{Ticket Name}} & \textbf{{Raised By}} & \textbf{{Module}} \\
+        \hline
+        {feature_table} \\
+        \hline
+    \end{{tabular}}
+
+    \section{{Bug Fixes and Other Work}}
+
+    Bugs, issues, and maintenance changes within the application which either
+    have not been raised by a client, or are proactively being fixed by the development team.
+
+    \begin{{tabular}}{{|c|p{{9cm}}|c|p{{3cm}}|}}
+        \hline
+        \textbf{{Ticket ID}} & \textbf{{Ticket Name}} & \textbf{{Raised By}} & \textbf{{Module}} \\
+        \hline
+        {bugfix_table} \\
+        \hline
+    \end{{tabular}}
+
+    \section{{Statistics for this release's changelog}}
+
+    \begin{{itemize}}
+        \item {n_tickets} tickets closed
+        \item {n_prs} pull requests merged
+        \item {n_features} new feature(s) or enhancement(s) added
+        \item {n_bugfixes} bugs fixed
+        \item {avg_lifetime} average ticket age at close
+        \item {avg_pr_lifetime} average PR age at close
+    \end{{itemize}}
+
+    \begin{{tabular}}{{|c|c|}}
+        \hline
+        \textbf{{Module}} & \textbf{{Tickets}} \\
+        \hline
+        {module_table} \\
+        \hline
+    \end{{tabular}}
+\end{{document}}

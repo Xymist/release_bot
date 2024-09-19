@@ -106,10 +106,10 @@ impl IssueData {
         let mut stats = self
             .module_stats
             .iter()
-            .map(|(module, count)| format!("| {} | {} |", module, count))
+            .map(|(module, count)| format!("{} & {}", module, count))
             .collect::<Vec<String>>();
         stats.sort();
-        stats.join("\n")
+        stats.join(" \\\\\n")
     }
 }
 
@@ -171,22 +171,27 @@ async fn fetch_issues(milestone: &str, repo: &str) -> Result<IssueData> {
 
         if let Some(details) = client_details {
             client_items.push(format!(
-                "| #{} | {} | {} | {} | {} |",
+                "{} & {} & {} & {}",
                 issue.number,
-                issue.title,
-                issue.user.login,
+                issue.title.replace('_', "\\_"),
+                details.replace('\n', ", ").replace('&', "\\&"),
                 module_details,
-                details.replace('\n', ", ")
             ));
         } else if feature {
             feature_items.push(format!(
-                "| #{} | {} | {} | {} |",
-                issue.number, issue.title, issue.user.login, module_details,
+                "{} & {} & {} & {}",
+                issue.number,
+                issue.title.replace('_', "\\_"),
+                issue.user.login,
+                module_details,
             ));
         } else {
             bugfix_items.push(format!(
-                "| #{} | {} | {} | {} |",
-                issue.number, issue.title, issue.user.login, module_details,
+                "{} & {} & {} & {}",
+                issue.number,
+                issue.title.replace('_', "\\_"),
+                issue.user.login,
+                module_details,
             ));
         }
     }
@@ -237,63 +242,32 @@ async fn pr_stats(milestone: &str, repo: &str) -> Result<PrStats> {
     Ok(stats)
 }
 
-async fn construct_report(version: &str, release_date: &str) -> String {
+async fn construct_report(version: &str) -> String {
     let issues = fetch_issues(version, "auction").await.unwrap_or_default();
-    let pr_stats = pr_stats(version, "auction").await.unwrap_or_default();
+    let pull_stats = pr_stats(version, "auction").await.unwrap_or_default();
 
     std::fmt::format(format_args!(
-        include_str!("report_format.md.tmpl"),
+        include_str!("report_format.tex.tmpl"),
         version = version,
-        release_date = release_date,
         n_tickets = issues.total_count,
-        n_prs = pr_stats.total_count,
+        n_prs = pull_stats.total_count,
         n_features = issues.features.len(),
         n_bugfixes = issues.bugfixes.len(),
-        client_request_table = issues.client_requests.join("\n"),
-        feature_table = issues.features.join("\n"),
-        bugfix_table = issues.bugfixes.join("\n"),
+        client_request_table = issues.client_requests.join(" \\\\\n"),
+        feature_table = issues.features.join(" \\\\\n"),
+        bugfix_table = issues.bugfixes.join(" \\\\\n"),
         avg_lifetime = issues.average_lifetime,
-        avg_pr_lifetime = pr_stats.average_lifetime,
+        avg_pr_lifetime = pull_stats.average_lifetime,
         module_table = issues.module_stats(),
     ))
 }
 
-// Convert markdown to pdf
-// Excuting pandoc with the following arguments:
-// -f markdown: input format
-// -t pdf: output format
-// -V margin-top=3: set the top margin to 3cm
-// -V margin-left=3: set the left margin to 3cm
-// -V margin-right=3: set the right margin to 3cm
-// -V margin-bottom=3: set the bottom margin to 3cm
-// --pdf-engine wkhtmltopdf: use wkhtmltopdf as the pdf engine
-// --pdf-engine-opt --enable-local-file-access: allow wkhtmltopdf to access local files
-// -c styles/pdf.css: use the css file in the styles directory
-// -o release-<milestones>.pdf: output to a file named release-<milestones>.pdf
-// <path>: the path to the markdown file
-fn generate_pdf(milestones: &str, path: &str) -> Result<()> {
-    Command::new("pandoc")
-        .arg("-f")
-        .arg("markdown")
-        .arg("-t")
-        .arg("pdf")
-        .arg("-V")
-        .arg("margin-top=3")
-        .arg("-V")
-        .arg("margin-left=3")
-        .arg("-V")
-        .arg("margin-right=3")
-        .arg("-V")
-        .arg("margin-bottom=3")
-        .arg("--pdf-engine")
-        .arg("wkhtmltopdf")
-        .arg("--pdf-engine-opt")
-        .arg("--enable-local-file-access")
-        .arg("-c")
-        .arg("styles/pdf.css")
-        .arg("-o")
-        .arg(format!("releases/release-{}.pdf", milestones))
+// tectonic <input> --outfmt <format> --chatter <level> --pass <pass> --format <path> --color <when>
+fn generate_pdf(path: &str) -> Result<()> {
+    Command::new("tectonic")
         .arg(path)
+        .arg("--outfmt")
+        .arg("pdf")
         .output()?;
 
     Ok(())
@@ -302,18 +276,12 @@ fn generate_pdf(milestones: &str, path: &str) -> Result<()> {
 async fn run(milestone: &str) -> Result<i32> {
     let dir_path = "releases";
     DirBuilder::new().recursive(true).create(dir_path)?;
-    let path = format!("releases/release-{}.md", milestone);
+    let path = format!("releases/release-{}.tex", milestone);
     let mut file = File::create(&path)?;
 
-    file.write_all(
-        construct_report(
-            milestone,
-            chrono::Utc::now().date_naive().to_string().as_str(),
-        )
-        .await
-        .as_bytes(),
-    )?;
-    generate_pdf(milestone, &path)?;
+    file.write_all(construct_report(milestone).await.as_bytes())?;
+
+    generate_pdf(&path)?;
 
     Ok(0)
 }
