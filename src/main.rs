@@ -98,8 +98,19 @@ struct IssueData {
     bugfixes: Vec<String>,
     total_count: usize,
     average_lifetime: String,
-    #[allow(dead_code)]
     module_stats: HashMap<String, i64>,
+}
+
+impl IssueData {
+    fn module_stats(&self) -> String {
+        let mut stats = self
+            .module_stats
+            .iter()
+            .map(|(module, count)| format!("| {} | {} |", module, count))
+            .collect::<Vec<String>>();
+        stats.sort();
+        stats.join("\n")
+    }
 }
 
 async fn fetch_issues(milestone: &str, repo: &str) -> Result<IssueData> {
@@ -132,7 +143,12 @@ async fn fetch_issues(milestone: &str, repo: &str) -> Result<IssueData> {
 
     for issue in issues {
         let title = issue.title.clone();
-        let body = issue.body.unwrap_or_default().replace("\r\n", "\n");
+        let body = issue
+            .body
+            .unwrap_or_default()
+            .replace("\r\n", "\n")
+            .trim()
+            .to_string();
         let client_details = client_regexp().await?.captures(&body).and_then(|c| {
             c.get(2)
                 .map(|m| m.as_str())
@@ -233,7 +249,8 @@ async fn construct_report(version: &str, release_date: &str) -> String {
         feature_table = issues.features.join("\n"),
         bugfix_table = issues.bugfixes.join("\n"),
         avg_lifetime = issues.average_lifetime,
-        avg_pr_lifetime = pr_stats.average_lifetime
+        avg_pr_lifetime = pr_stats.average_lifetime,
+        module_table = issues.module_stats(),
     ))
 }
 

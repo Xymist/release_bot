@@ -28,7 +28,7 @@ pub async fn module_regexp() -> Result<&'static Regex> {
     MODULE_REGEXP
         .get_or_try_init(|| async {
             Ok::<Regex, Report>(Regex::new(
-                r"### Which module\(s\) (is this bug related to|would developing this feature affect|would this epic affect|would making this change affect)\?\n+(.*?)\n+###",
+                r"### Which module\(s\) (is this bug related to|would developing this feature affect|would this epic affect|would making this change affect)\?\n+(.*?)\n*(###|$)",
             )?)
         })
         .await
