@@ -12,8 +12,8 @@ mod regex;
 
 use clap::Parser;
 use color_eyre::{Report, Result};
-use octocrab::Octocrab;
-use regex::{client_regexp, feature_regexp, module_regexp};
+use octocrab::{models::issues::Issue, Octocrab};
+use regex::{client_details, feature_regexp, module_details};
 use std::{
     collections::HashMap,
     fs::{DirBuilder, File},
@@ -92,33 +92,116 @@ fn duration_to_string(duration: chrono::Duration) -> String {
 }
 
 #[derive(Default)]
+struct ModuleStat {
+    bugs: usize,
+    features: usize,
+}
+
+enum OutputType {
+    Latex,
+    Markdown,
+}
+
+#[derive(Default)]
 struct IssueData {
-    client_requests: Vec<String>,
-    features: Vec<String>,
-    bugfixes: Vec<String>,
-    total_count: usize,
+    client_requests: Vec<(u64, String, String)>,
+    features: Vec<(u64, String, String)>,
+    bugfixes: Vec<(u64, String, String)>,
     average_lifetime: String,
-    module_stats: HashMap<String, i64>,
+    module_stats: Vec<(String, usize, usize, usize)>,
 }
 
 impl IssueData {
-    fn module_stats(&self) -> String {
-        let mut stats = self
-            .module_stats
-            .iter()
-            .map(|(module, count)| format!("{} & {}", module, count))
-            .collect::<Vec<String>>();
-        stats.sort();
-        stats.join(" \\\\\n")
+    fn client_requests(&self, output_type: OutputType) -> String {
+        match output_type {
+            OutputType::Latex => self
+                .client_requests
+                .iter()
+                .map(|cr| format!("{} & {} & {}", cr.0, cr.1, cr.2))
+                .collect::<Vec<String>>()
+                .join(" \\\\\n"),
+            OutputType::Markdown => self
+                .client_requests
+                .iter()
+                .map(|cr| format!("| {} | {} | {} |", cr.0, cr.1, cr.2))
+                .collect::<Vec<String>>()
+                .join("\n"),
+        }
+    }
+
+    fn features(&self, output_type: OutputType) -> String {
+        match output_type {
+            OutputType::Latex => self
+                .features
+                .iter()
+                .map(|f| format!("{} & {} & {}", f.0, f.1, f.2))
+                .collect::<Vec<String>>()
+                .join(" \\\\\n"),
+            OutputType::Markdown => self
+                .features
+                .iter()
+                .map(|f| format!("| {} | {} | {} |", f.0, f.1, f.2))
+                .collect::<Vec<String>>()
+                .join("\n"),
+        }
+    }
+
+    fn bugfixes(&self, output_type: OutputType) -> String {
+        match output_type {
+            OutputType::Latex => self
+                .bugfixes
+                .iter()
+                .map(|b| format!("{} & {} & {}", b.0, b.1, b.2))
+                .collect::<Vec<String>>()
+                .join(" \\\\\n"),
+            OutputType::Markdown => self
+                .bugfixes
+                .iter()
+                .map(|b| format!("| {} | {} | {} |", b.0, b.1, b.2))
+                .collect::<Vec<String>>()
+                .join("\n"),
+        }
+    }
+
+    fn module_stats(&self, output_type: OutputType) -> String {
+        match output_type {
+            OutputType::Latex => self
+                .module_stats
+                .iter()
+                .map(|m| {
+                    if m.0.as_str() == "Total" {
+                        format!(
+                            "\\textbf{{{}}} & \\textbf{{{}}} & \\textbf{{{}}} & \\textbf{{{}}}",
+                            m.0, m.1, m.2, m.3
+                        )
+                    } else {
+                        format!("{} & {} & {} & {}", m.0, m.1, m.2, m.3)
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(" \\\\\n"),
+            OutputType::Markdown => self
+                .module_stats
+                .iter()
+                .map(|m| {
+                    if m.0.as_str() == "Total" {
+                        format!("| **{}** | **{}** | **{}** | **{}** |", m.0, m.1, m.2, m.3)
+                    } else {
+                        format!("| {} | {} | {} | {} |", m.0, m.1, m.2, m.3)
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n"),
+        }
     }
 }
 
-async fn fetch_issues(milestone: &str, repo: &str) -> Result<IssueData> {
+async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
     let issues = client()
         .search()
         .issues_and_pull_requests(&format!(
             "milestone:{} repo:marketdojo/{} is:closed is:issue",
-            milestone, repo
+            version, repo
         ))
         .send()
         .await?
@@ -127,8 +210,9 @@ async fn fetch_issues(milestone: &str, repo: &str) -> Result<IssueData> {
     let mut client_items = Vec::new();
     let mut feature_items = Vec::new();
     let mut bugfix_items = Vec::new();
-    let total_count = issues.len();
     let mut module_stats = HashMap::new();
+    let mut feature_count = 0;
+    let mut bug_count = 0;
     let average_lifetime = issues
         .clone()
         .filter_map(|issue| {
@@ -139,85 +223,106 @@ async fn fetch_issues(milestone: &str, repo: &str) -> Result<IssueData> {
             })
         })
         .sum::<i64>()
-        / total_count as i64;
+        / issues.len() as i64;
 
     for issue in issues {
-        let title = issue.title.clone();
-        let body = issue
-            .body
-            .unwrap_or_default()
-            .replace("\r\n", "\n")
-            .trim()
-            .to_string();
-        let client_details = client_regexp().await?.captures(&body).and_then(|c| {
-            c.get(2)
-                .map(|m| m.as_str())
-                .filter(|m| *m != "_No response_" && !m.trim().is_empty())
-        });
-        let module_details = module_regexp()
-            .await?
-            .captures(&body)
-            .and_then(|c| {
-                c.get(2)
-                    .map(|m| m.as_str())
-                    .filter(|m| *m != "_No response_" && !m.trim().is_empty())
-            })
-            .unwrap_or("Unknown");
+        let title = title(&issue);
+        let body = body(&issue);
+        let client_details = client_details(&body).await;
+        let modules = module_details(&body).await;
         let feature = feature_regexp().await?.is_match(&title);
-        let modules = module_details.split(", ");
-        for module in modules {
-            *module_stats.entry(module.to_string()).or_insert(0) += 1;
+
+        if let Some(modules) = modules {
+            for module in modules {
+                let stat = module_stats
+                    .entry(module.to_string())
+                    .or_insert(ModuleStat::default());
+
+                if feature {
+                    stat.features += 1;
+                } else {
+                    stat.bugs += 1;
+                }
+            }
         }
 
         if let Some(details) = client_details {
-            client_items.push(format!(
-                "{} & {} & {} & {}",
-                issue.number,
-                issue.title.replace('_', "\\_"),
-                details.replace('\n', ", ").replace('&', "\\&"),
-                module_details,
-            ));
+            if feature {
+                feature_count += 1;
+            } else {
+                bug_count += 1;
+            }
+
+            client_items.push((issue.number, title, details));
         } else if feature {
-            feature_items.push(format!(
-                "{} & {} & {} & {}",
-                issue.number,
-                issue.title.replace('_', "\\_"),
-                issue.user.login,
-                module_details,
-            ));
+            feature_count += 1;
+            feature_items.push((issue.number, title, issue.user.login));
         } else {
-            bugfix_items.push(format!(
-                "{} & {} & {} & {}",
-                issue.number,
-                issue.title.replace('_', "\\_"),
-                issue.user.login,
-                module_details,
-            ));
+            bug_count += 1;
+            bugfix_items.push((issue.number, title, issue.user.login));
         }
     }
+
+    let mut module_stats: Vec<(String, usize, usize, usize)> = module_stats
+        .iter()
+        .map(|(module, count)| {
+            (
+                module.clone(),
+                count.features,
+                count.bugs,
+                count.features + count.bugs,
+            )
+        })
+        .collect();
+    module_stats.sort_by(|a, b| a.0.cmp(&b.0));
+    module_stats.push((
+        "Total".to_string(),
+        feature_count,
+        bug_count,
+        feature_count + bug_count,
+    ));
 
     Ok(IssueData {
         client_requests: client_items,
         features: feature_items,
         bugfixes: bugfix_items,
         average_lifetime: duration_to_string(chrono::Duration::seconds(average_lifetime)),
-        total_count,
         module_stats,
     })
+}
+
+fn title(issue: &Issue) -> String {
+    issue
+        .title
+        .clone()
+        .replace('_', "\\_")
+        .replace('&', "\\&")
+        .replace('#', "\\#")
+}
+
+fn body(issue: &Issue) -> String {
+    issue
+        .body
+        .clone()
+        .unwrap_or_default()
+        .replace("\r\n", "\n")
+        .trim()
+        .to_string()
 }
 
 #[derive(Default)]
 struct PrStats {
     total_count: usize,
     average_lifetime: String,
+    contributor_count: usize,
 }
 
-async fn pr_stats(milestone: &str, repo: &str) -> Result<PrStats> {
+async fn pr_stats(version: &str, repo: &str) -> Result<PrStats> {
     let pulls = client()
         .search()
         .issues_and_pull_requests(&format!(
             "milestone:{} repo:marketdojo/{} is:closed is:pr",
-            milestone, repo
+            version, repo
         ))
         .send()
         .await?
@@ -227,6 +332,11 @@ async fn pr_stats(milestone: &str, repo: &str) -> Result<PrStats> {
     let mut stats = PrStats {
         total_count: len,
         average_lifetime: "".to_string(),
+        contributor_count: pulls
+            .clone()
+            .map(|pr| pr.user.login)
+            .collect::<std::collections::HashSet<_>>()
+            .len(),
     };
 
     let average_lifetime = pulls
@@ -242,23 +352,40 @@ async fn pr_stats(milestone: &str, repo: &str) -> Result<PrStats> {
     Ok(stats)
 }
 
-async fn construct_report(version: &str) -> String {
+async fn construct_latex_report(version: &str) -> String {
     let issues = fetch_issues(version, "auction").await.unwrap_or_default();
     let pull_stats = pr_stats(version, "auction").await.unwrap_or_default();
 
     std::fmt::format(format_args!(
-        include_str!("report_format.tex.tmpl"),
+        include_str!("../resources/report_format.tex.tmpl"),
         version = version,
-        n_tickets = issues.total_count,
         n_prs = pull_stats.total_count,
-        n_features = issues.features.len(),
-        n_bugfixes = issues.bugfixes.len(),
-        client_request_table = issues.client_requests.join(" \\\\\n"),
-        feature_table = issues.features.join(" \\\\\n"),
-        bugfix_table = issues.bugfixes.join(" \\\\\n"),
+        client_request_table = issues.client_requests(OutputType::Latex),
+        feature_table = issues.features(OutputType::Latex),
+        bugfix_table = issues.bugfixes(OutputType::Latex),
         avg_lifetime = issues.average_lifetime,
         avg_pr_lifetime = pull_stats.average_lifetime,
-        module_table = issues.module_stats(),
+        module_table = issues.module_stats(OutputType::Latex),
+        n_contributors = pull_stats.contributor_count,
+    ))
+}
+
+async fn construct_markdown_report(version: &str) -> String {
+    let issues = fetch_issues(version, "auction").await.unwrap_or_default();
+    let pull_stats = pr_stats(version, "auction").await.unwrap_or_default();
+
+    std::fmt::format(format_args!(
+        include_str!("../resources/report_format.md.tmpl"),
+        release_date = chrono::Utc::now().format("%Y-%m-%d"),
+        version = version,
+        n_prs = pull_stats.total_count,
+        client_request_table = issues.client_requests(OutputType::Markdown),
+        feature_table = issues.features(OutputType::Markdown),
+        bugfix_table = issues.bugfixes(OutputType::Markdown),
+        avg_lifetime = issues.average_lifetime,
+        avg_pr_lifetime = pull_stats.average_lifetime,
+        module_table = issues.module_stats(OutputType::Markdown),
+        n_contributors = pull_stats.contributor_count,
     ))
 }
 
@@ -274,14 +401,30 @@ fn generate_pdf(path: &str) -> Result<()> {
 }
 
 async fn run(milestone: &str) -> Result<i32> {
+    latex_report(milestone).await?;
+    markdown_report(milestone).await?;
+
+    Ok(0)
+}
+
+async fn latex_report(milestone: &str) -> Result<()> {
     let dir_path = "releases";
     DirBuilder::new().recursive(true).create(dir_path)?;
     let path = format!("releases/release-{}.tex", milestone);
     let mut file = File::create(&path)?;
 
-    file.write_all(construct_report(milestone).await.as_bytes())?;
+    file.write_all(construct_latex_report(milestone).await.as_bytes())?;
 
-    generate_pdf(&path)?;
+    generate_pdf(&path)
+}
 
-    Ok(0)
+async fn markdown_report(milestone: &str) -> Result<()> {
+    let dir_path = "releases";
+    DirBuilder::new().recursive(true).create(dir_path)?;
+    let path = format!("releases/release-{}.md", milestone);
+    let mut file = File::create(&path)?;
+
+    file.write_all(construct_markdown_report(milestone).await.as_bytes())?;
+
+    Ok(())
 }
