@@ -19,6 +19,7 @@ use std::{
     fs::{DirBuilder, File},
     io::Write,
     process::Command,
+    vec::IntoIter,
 };
 use tokio::sync::OnceCell;
 use tracing::error;
@@ -102,13 +103,13 @@ enum OutputType {
     Markdown,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct IssueData {
     client_requests: Vec<(u64, String, String)>,
     features: Vec<(u64, String, String)>,
     bugfixes: Vec<(u64, String, String)>,
     average_lifetime: String,
-    module_stats: Vec<(String, usize, usize, usize)>,
+    module_stats: Vec<(String, usize, usize)>,
 }
 
 impl IssueData {
@@ -172,10 +173,13 @@ impl IssueData {
                     if m.0.as_str() == "Total" {
                         format!(
                             "\\textbf{{{}}} & \\textbf{{{}}} & \\textbf{{{}}} & \\textbf{{{}}}",
-                            m.0, m.1, m.2, m.3
+                            m.0,
+                            m.1,
+                            m.2,
+                            m.1 + m.2
                         )
                     } else {
-                        format!("{} & {} & {} & {}", m.0, m.1, m.2, m.3)
+                        format!("{} & {} & {} & {}", m.0, m.1, m.2, m.1 + m.2)
                     }
                 })
                 .collect::<Vec<String>>()
@@ -185,9 +189,15 @@ impl IssueData {
                 .iter()
                 .map(|m| {
                     if m.0.as_str() == "Total" {
-                        format!("| **{}** | **{}** | **{}** | **{}** |", m.0, m.1, m.2, m.3)
+                        format!(
+                            "| **{}** | **{}** | **{}** | **{}** |",
+                            m.0,
+                            m.1,
+                            m.2,
+                            m.1 + m.2
+                        )
                     } else {
-                        format!("| {} | {} | {} | {} |", m.0, m.1, m.2, m.3)
+                        format!("| {} | {} | {} | {} |", m.0, m.1, m.2, m.1 + m.2)
                     }
                 })
                 .collect::<Vec<String>>()
@@ -207,23 +217,11 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
         .await?
         .into_iter();
 
-    let mut client_items = Vec::new();
-    let mut feature_items = Vec::new();
-    let mut bugfix_items = Vec::new();
+    let mut client_requests = Vec::new();
+    let mut features = Vec::new();
+    let mut bugfixes = Vec::new();
     let mut module_stats = HashMap::new();
-    let mut feature_count = 0;
-    let mut bug_count = 0;
-    let average_lifetime = issues
-        .clone()
-        .filter_map(|issue| {
-            issue.closed_at.and_then(|closed_at| {
-                closed_at
-                    .timestamp()
-                    .checked_sub(issue.created_at.timestamp())
-            })
-        })
-        .sum::<i64>()
-        / issues.len() as i64;
+    let average_lifetime = average_lifetime(issues.clone());
 
     for issue in issues {
         let title = title(&issue);
@@ -233,10 +231,18 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
         let feature = feature_regexp().await?.is_match(&title);
 
         if let Some(modules) = modules {
+            // In debug env, print the modules for each issue
+            if cfg!(debug_assertions) {
+                println!("{}: {}", title, modules.join(", "));
+            }
+
             for module in modules {
                 let stat = module_stats
                     .entry(module.to_string())
-                    .or_insert(ModuleStat::default());
+                    .or_insert(ModuleStat {
+                        bugs: 0,
+                        features: 0,
+                    });
 
                 if feature {
                     stat.features += 1;
@@ -247,54 +253,54 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
         }
 
         if let Some(details) = client_details {
-            if feature {
-                feature_count += 1;
-            } else {
-                bug_count += 1;
-            }
-
-            client_items.push((issue.number, title, details));
+            client_requests.push((issue.number, title, details));
         } else if feature {
-            feature_count += 1;
-            feature_items.push((issue.number, title, issue.user.login));
+            features.push((issue.number, title, issue.user.login));
         } else {
-            bug_count += 1;
-            bugfix_items.push((issue.number, title, issue.user.login));
+            bugfixes.push((issue.number, title, issue.user.login));
         }
     }
 
-    let mut module_stats: Vec<(String, usize, usize, usize)> = module_stats
+    let mut module_stats: Vec<(String, usize, usize)> = module_stats
         .iter()
-        .map(|(module, count)| {
-            (
-                module.clone(),
-                count.features,
-                count.bugs,
-                count.features + count.bugs,
-            )
-        })
+        .map(|(module, count)| (module.clone(), count.features, count.bugs))
         .collect();
     module_stats.sort_by(|a, b| a.0.cmp(&b.0));
-    module_stats.push((
-        "Total".to_string(),
-        feature_count,
-        bug_count,
-        feature_count + bug_count,
-    ));
+
+    let feature_count = module_stats.iter().map(|(_, f, _)| f).sum();
+    let bug_count = module_stats.iter().map(|(_, _, b)| b).sum();
+
+    module_stats.push(("Total".to_string(), feature_count, bug_count));
 
     Ok(IssueData {
-        client_requests: client_items,
-        features: feature_items,
-        bugfixes: bugfix_items,
-        average_lifetime: duration_to_string(chrono::Duration::seconds(average_lifetime)),
+        client_requests,
+        features,
+        bugfixes,
+        average_lifetime,
         module_stats,
     })
+}
+
+fn average_lifetime(issues: IntoIter<octocrab::models::issues::Issue>) -> String {
+    let len = issues.len() as i64;
+    let average_lifetime = issues
+        .filter_map(|issue| {
+            issue.closed_at.and_then(|closed_at| {
+                closed_at
+                    .timestamp()
+                    .checked_sub(issue.created_at.timestamp())
+            })
+        })
+        .sum::<i64>()
+        / len;
+
+    duration_to_string(chrono::Duration::seconds(average_lifetime))
 }
 
 fn title(issue: &Issue) -> String {
     issue
         .title
-        .clone()
+        .trim()
         .replace('_', "\\_")
         .replace('&', "\\&")
         .replace('#', "\\#")
@@ -305,12 +311,11 @@ fn body(issue: &Issue) -> String {
         .body
         .clone()
         .unwrap_or_default()
-        .replace("\r\n", "\n")
         .trim()
-        .to_string()
+        .replace("\r\n", "\n")
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct PrStats {
     total_count: usize,
     average_lifetime: String,
@@ -352,10 +357,7 @@ async fn pr_stats(version: &str, repo: &str) -> Result<PrStats> {
     Ok(stats)
 }
 
-async fn construct_latex_report(version: &str) -> String {
-    let issues = fetch_issues(version, "auction").await.unwrap_or_default();
-    let pull_stats = pr_stats(version, "auction").await.unwrap_or_default();
-
+async fn construct_latex_report(version: &str, issues: &IssueData, pull_stats: &PrStats) -> String {
     std::fmt::format(format_args!(
         include_str!("../resources/report_format.tex.tmpl"),
         version = version,
@@ -370,10 +372,11 @@ async fn construct_latex_report(version: &str) -> String {
     ))
 }
 
-async fn construct_markdown_report(version: &str) -> String {
-    let issues = fetch_issues(version, "auction").await.unwrap_or_default();
-    let pull_stats = pr_stats(version, "auction").await.unwrap_or_default();
-
+async fn construct_markdown_report(
+    version: &str,
+    issues: &IssueData,
+    pull_stats: &PrStats,
+) -> String {
     std::fmt::format(format_args!(
         include_str!("../resources/report_format.md.tmpl"),
         release_date = chrono::Utc::now().format("%Y-%m-%d"),
@@ -400,31 +403,42 @@ fn generate_pdf(path: &str) -> Result<()> {
     Ok(())
 }
 
-async fn run(milestone: &str) -> Result<i32> {
-    latex_report(milestone).await?;
-    markdown_report(milestone).await?;
+async fn run(version: &str) -> Result<i32> {
+    let issues = fetch_issues(version, "auction").await.unwrap_or_default();
+    let pull_stats = pr_stats(version, "auction").await.unwrap_or_default();
+
+    latex_report(version, &issues, &pull_stats).await?;
+    markdown_report(version, &issues, &pull_stats).await?;
 
     Ok(0)
 }
 
-async fn latex_report(milestone: &str) -> Result<()> {
+async fn latex_report(version: &str, issues: &IssueData, pull_stats: &PrStats) -> Result<()> {
     let dir_path = "releases";
     DirBuilder::new().recursive(true).create(dir_path)?;
-    let path = format!("releases/release-{}.tex", milestone);
+    let path = format!("releases/release-{}.tex", version);
     let mut file = File::create(&path)?;
 
-    file.write_all(construct_latex_report(milestone).await.as_bytes())?;
+    file.write_all(
+        construct_latex_report(version, issues, pull_stats)
+            .await
+            .as_bytes(),
+    )?;
 
     generate_pdf(&path)
 }
 
-async fn markdown_report(milestone: &str) -> Result<()> {
+async fn markdown_report(version: &str, issues: &IssueData, pull_stats: &PrStats) -> Result<()> {
     let dir_path = "releases";
     DirBuilder::new().recursive(true).create(dir_path)?;
-    let path = format!("releases/release-{}.md", milestone);
+    let path = format!("releases/release-{}.md", version);
     let mut file = File::create(&path)?;
 
-    file.write_all(construct_markdown_report(milestone).await.as_bytes())?;
+    file.write_all(
+        construct_markdown_report(version, issues, pull_stats)
+            .await
+            .as_bytes(),
+    )?;
 
     Ok(())
 }
