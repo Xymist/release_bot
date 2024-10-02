@@ -78,7 +78,7 @@ pub async fn module_details(haystack: &str) -> Option<Vec<&str>> {
                     .map(|m| m.as_str())
                     .filter(|m| *m != "_No response_" && !m.trim().is_empty())
             })
-            .unwrap_or("Unknown")
+            .unwrap_or("Unsure/Other")
             .split(", ")
             .collect(),
     )
