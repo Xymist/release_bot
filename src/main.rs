@@ -11,7 +11,7 @@
 mod regex;
 
 use clap::Parser;
-use color_eyre::{Report, Result};
+use color_eyre::{eyre::eyre, Report, Result};
 use octocrab::{models::issues::Issue, Octocrab};
 use regex::{client_details, feature_regexp, module_details};
 use std::{
@@ -22,7 +22,7 @@ use std::{
     vec::IntoIter,
 };
 use tokio::sync::OnceCell;
-use tracing::error;
+use tracing::{error, info};
 
 static CLIENT: OnceCell<Octocrab> = OnceCell::const_new();
 fn client() -> &'static Octocrab {
@@ -51,7 +51,7 @@ async fn main() {
 
     ::std::process::exit(match run(args.milestone.as_ref()).await {
         Ok(_) => {
-            println!("Goodbye");
+            info!("Goodbye");
             0
         }
         Err(err) => {
@@ -221,7 +221,7 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
     let mut features = Vec::new();
     let mut bugfixes = Vec::new();
     let mut module_stats = HashMap::new();
-    let average_lifetime = average_lifetime(issues.clone());
+    let average_lifetime = average_lifetime(issues.clone())?;
 
     for issue in issues {
         let title = title(&issue);
@@ -268,7 +268,10 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
     module_stats.sort_by(|a, b| a.0.cmp(&b.0));
 
     let feature_count = module_stats.iter().map(|(_, f, _)| f).sum();
+    info!("Feature count: {}", feature_count);
+
     let bug_count = module_stats.iter().map(|(_, _, b)| b).sum();
+    info!("Bug count: {}", bug_count);
 
     module_stats.push(("Total".to_string(), feature_count, bug_count));
 
@@ -281,8 +284,9 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
     })
 }
 
-fn average_lifetime(issues: IntoIter<octocrab::models::issues::Issue>) -> String {
+fn average_lifetime(issues: IntoIter<octocrab::models::issues::Issue>) -> Result<String> {
     let len = issues.len() as i64;
+
     let average_lifetime = issues
         .filter_map(|issue| {
             issue.closed_at.and_then(|closed_at| {
@@ -292,9 +296,12 @@ fn average_lifetime(issues: IntoIter<octocrab::models::issues::Issue>) -> String
             })
         })
         .sum::<i64>()
-        / len;
+        .checked_div(len)
+        .ok_or(eyre!("No issues found for this milestone"))?;
 
-    duration_to_string(chrono::Duration::seconds(average_lifetime))
+    Ok(duration_to_string(chrono::Duration::seconds(
+        average_lifetime,
+    )))
 }
 
 fn title(issue: &Issue) -> String {
@@ -309,10 +316,9 @@ fn title(issue: &Issue) -> String {
 fn body(issue: &Issue) -> String {
     issue
         .body
-        .clone()
+        .as_ref()
+        .map(|body| body.trim().replace("\r\n", "\n"))
         .unwrap_or_default()
-        .trim()
-        .replace("\r\n", "\n")
 }
 
 #[derive(Clone, Default)]
@@ -350,7 +356,8 @@ async fn pr_stats(version: &str, repo: &str) -> Result<PrStats> {
                 .and_then(|closed_at| closed_at.timestamp().checked_sub(pr.created_at.timestamp()))
         })
         .sum::<i64>()
-        / len as i64;
+        .checked_div(len as i64)
+        .ok_or(eyre!("No PRs found for this milestone"))?;
 
     stats.average_lifetime = duration_to_string(chrono::Duration::seconds(average_lifetime));
 
@@ -406,11 +413,17 @@ fn generate_pdf(path: &str) -> Result<()> {
 }
 
 async fn run(version: &str) -> Result<i32> {
-    let issues = fetch_issues(version, "auction").await.unwrap_or_default();
-    let pull_stats = pr_stats(version, "auction").await.unwrap_or_default();
+    info!("Fetching issues");
+    let issues = fetch_issues(version, "auction").await?;
+
+    info!("Fetching PR stats");
+    let pull_stats = pr_stats(version, "auction").await?;
 
     latex_report(version, &issues, &pull_stats).await?;
+    info!("Generated LaTeX and PDF reports");
+
     markdown_report(version, &issues, &pull_stats).await?;
+    info!("Generated Markdown report");
 
     Ok(0)
 }
