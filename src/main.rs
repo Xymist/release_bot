@@ -402,7 +402,16 @@ async fn construct_markdown_report(
 }
 
 // tectonic <input> --outfmt <format> --chatter <level> --pass <pass> --format <path> --color <when>
-fn generate_pdf(path: &str) -> Result<()> {
+async fn generate_pdf(path: &str) -> Result<()> {
+    let dir_path = "resources";
+    DirBuilder::new().recursive(true).create(dir_path)?;
+    let logo = File::create_new("resources/mdlogo.png");
+
+    if let Ok(mut logo) = logo {
+        info!("Creating logo");
+        logo.write_all(include_bytes!("../resources/mdlogo.png"))?;
+    }
+
     let output = Command::new("tectonic")
         .arg(path)
         .arg("--outfmt")
@@ -447,7 +456,7 @@ async fn latex_report(version: &str, issues: &IssueData, pull_stats: &PrStats) -
             .as_bytes(),
     )?;
 
-    generate_pdf(&path)
+    generate_pdf(&path).await
 }
 
 async fn markdown_report(version: &str, issues: &IssueData, pull_stats: &PrStats) -> Result<()> {
