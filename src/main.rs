@@ -403,11 +403,18 @@ async fn construct_markdown_report(
 
 // tectonic <input> --outfmt <format> --chatter <level> --pass <pass> --format <path> --color <when>
 fn generate_pdf(path: &str) -> Result<()> {
-    Command::new("tectonic")
+    let output = Command::new("tectonic")
         .arg(path)
         .arg("--outfmt")
         .arg("pdf")
         .output()?;
+
+    if !output.status.success() {
+        return Err(eyre!(
+            "Failed to generate PDF, with the following stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
 
     Ok(())
 }
