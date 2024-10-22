@@ -12,21 +12,19 @@ pub async fn client_details(haystack: &str) -> Option<String> {
     let old_captures = client_regexp.captures(haystack);
     let results = if old_captures.is_none() {
         let client_regexp = new_client_regexp().await.ok()?;
-        client_regexp.captures(haystack)
+        client_regexp.captures(haystack).and_then(|c| c.get(1))
     } else {
-        old_captures
+        old_captures.and_then(|c| c.get(2))
     };
 
-    results.and_then(|c| {
-        c.get(2)
-            .map(|m| m.as_str())
-            .map(|m| {
-                m.replace('\n', ", ")
-                    .replace('&', "\\&")
-                    .replace('#', "\\#")
-            })
-            .filter(|m| *m != "_No response_" && !m.trim().is_empty())
-    })
+    results
+        .map(|m| m.as_str())
+        .map(|m| {
+            m.replace('\n', ", ")
+                .replace('&', "\\&")
+                .replace('#', "\\#")
+        })
+        .filter(|m| *m != "_No response_" && !m.trim().is_empty())
 }
 
 pub async fn old_client_regexp() -> Result<&'static Regex> {
