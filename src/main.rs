@@ -213,6 +213,7 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
             "milestone:{} repo:marketdojo/{} is:closed is:issue",
             version, repo
         ))
+        .per_page(100)
         .send()
         .await?
         .into_iter();
@@ -222,6 +223,10 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
     let mut bugfixes = Vec::new();
     let mut module_stats = HashMap::new();
     let average_lifetime = average_lifetime(issues.clone())?;
+
+    if cfg!(debug_assertions) {
+        info!("# of issues fetched: {}", issues.len());
+    }
 
     for issue in issues {
         let title = title(&issue);
