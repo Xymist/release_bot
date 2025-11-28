@@ -12,6 +12,7 @@ mod regex;
 
 use clap::Parser;
 use color_eyre::{eyre::eyre, Report, Result};
+use futures_util::TryStreamExt;
 use octocrab::{models::issues::Issue, Octocrab};
 use regex::{client_details, feature_regexp, module_details};
 use std::{
@@ -21,7 +22,7 @@ use std::{
     process::Command,
     vec::IntoIter,
 };
-use tokio::sync::OnceCell;
+use tokio::{pin, sync::OnceCell};
 use tracing::{error, info};
 
 static CLIENT: OnceCell<Octocrab> = OnceCell::const_new();
@@ -207,6 +208,8 @@ impl IssueData {
 }
 
 async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
+    let mut issue_aggregator = Vec::new();
+
     let issues = client()
         .search()
         .issues_and_pull_requests(&format!(
@@ -216,19 +219,17 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
         .per_page(100)
         .send()
         .await?
-        .into_iter();
+        .into_stream(client());
+
+    pin!(issues);
 
     let mut client_requests = Vec::new();
     let mut features = Vec::new();
     let mut bugfixes = Vec::new();
     let mut module_stats = HashMap::new();
-    let average_lifetime = average_lifetime(issues.clone())?;
 
-    if cfg!(debug_assertions) {
-        info!("# of issues fetched: {}", issues.len());
-    }
-
-    for issue in issues {
+    while let Some(issue) = issues.try_next().await? {
+        issue_aggregator.push(issue.clone());
         let title = title(&issue);
         let body = body(&issue);
         let client_details = client_details(&body).await;
@@ -265,6 +266,8 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
             bugfixes.push((issue.number, title, issue.user.login));
         }
     }
+
+    let average_lifetime = average_lifetime(issue_aggregator.into_iter())?;
 
     let mut module_stats: Vec<(String, usize, usize)> = module_stats
         .iter()
