@@ -19,6 +19,7 @@ use std::{
     collections::HashMap,
     fs::{DirBuilder, File},
     io::Write,
+    ops::{Add, AddAssign},
     process::Command,
     vec::IntoIter,
 };
@@ -34,7 +35,7 @@ fn client() -> &'static Octocrab {
 #[command(version, about)]
 struct Args {
     #[clap(short, long)]
-    milestone: String,
+    milestone: Vec<String>,
     #[clap(short, long, env = "GITHUB_TOKEN")]
     token: String,
 }
@@ -50,7 +51,7 @@ async fn main() {
         })
         .await;
 
-    ::std::process::exit(match run(args.milestone.as_ref()).await {
+    ::std::process::exit(match run(args.milestone).await {
         Ok(_) => {
             info!("Goodbye");
             0
@@ -93,10 +94,27 @@ fn duration_to_string(duration: chrono::Duration) -> String {
     components.join(", ")
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 struct ModuleStat {
     bugs: usize,
     features: usize,
+}
+
+impl Add for ModuleStat {
+    type Output = ModuleStat;
+
+    fn add(mut self, other: ModuleStat) -> ModuleStat {
+        self.bugs += other.bugs;
+        self.features += other.features;
+        self
+    }
+}
+
+impl AddAssign for ModuleStat {
+    fn add_assign(&mut self, other: ModuleStat) {
+        self.bugs += other.bugs;
+        self.features += other.features;
+    }
 }
 
 enum OutputType {
@@ -109,12 +127,47 @@ struct IssueData {
     client_requests: Vec<(u64, String, String)>,
     features: Vec<(u64, String, String)>,
     bugfixes: Vec<(u64, String, String)>,
-    average_lifetime: String,
-    module_stats: Vec<(String, usize, usize)>,
+    average_lifetime: i64,
+    module_stats: HashMap<String, ModuleStat>,
+}
+
+impl AddAssign for IssueData {
+    fn add_assign(&mut self, other: IssueData) {
+        *self = self.clone() + other;
+    }
+}
+
+impl Add<IssueData> for IssueData {
+    type Output = IssueData;
+
+    fn add(mut self, other: IssueData) -> IssueData {
+        IssueData {
+            client_requests: [self.client_requests, other.client_requests].concat(),
+            features: [self.features, other.features].concat(),
+            bugfixes: [self.bugfixes, other.bugfixes].concat(),
+            average_lifetime: (self.average_lifetime + other.average_lifetime) / 2,
+            module_stats: {
+                for (module, stat) in other.module_stats {
+                    self.module_stats
+                        .entry(module)
+                        .and_modify(|s| *s = s.clone() + stat.clone())
+                        .or_insert(stat);
+                }
+                self.module_stats
+            },
+        }
+    }
 }
 
 impl IssueData {
     fn client_requests(&self, output_type: OutputType) -> String {
+        if self.client_requests.is_empty() {
+            return match output_type {
+                OutputType::Latex => "No client requests reported. & N/A & N/A".to_string(),
+                OutputType::Markdown => "| No client requests reported. | N/A | N/A |".to_string(),
+            };
+        }
+
         match output_type {
             OutputType::Latex => self
                 .client_requests
@@ -132,6 +185,13 @@ impl IssueData {
     }
 
     fn features(&self, output_type: OutputType) -> String {
+        if self.features.is_empty() {
+            return match output_type {
+                OutputType::Latex => "No features reported. & N/A & N/A".to_string(),
+                OutputType::Markdown => "| No features reported. | N/A | N/A |".to_string(),
+            };
+        }
+
         match output_type {
             OutputType::Latex => self
                 .features
@@ -149,6 +209,13 @@ impl IssueData {
     }
 
     fn bugfixes(&self, output_type: OutputType) -> String {
+        if self.bugfixes.is_empty() {
+            return match output_type {
+                OutputType::Latex => "No bug fixes reported. & N/A & N/A".to_string(),
+                OutputType::Markdown => "| No bug fixes reported. | N/A | N/A |".to_string(),
+            };
+        }
+
         match output_type {
             OutputType::Latex => self
                 .bugfixes
@@ -166,9 +233,20 @@ impl IssueData {
     }
 
     fn module_stats(&self, output_type: OutputType) -> String {
+        let mut stat_data: Vec<(String, usize, usize)> = self
+            .module_stats
+            .iter()
+            .map(|(module, count)| (module.clone(), count.features, count.bugs))
+            .collect();
+        stat_data.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let feature_count = stat_data.iter().map(|(_, features, _)| features).sum();
+        let bug_count = stat_data.iter().map(|(_, _, bugs)| bugs).sum();
+
+        stat_data.push(("Total".to_string(), feature_count, bug_count));
+
         match output_type {
-            OutputType::Latex => self
-                .module_stats
+            OutputType::Latex => stat_data
                 .iter()
                 .map(|m| {
                     if m.0.as_str() == "Total" {
@@ -185,8 +263,7 @@ impl IssueData {
                 })
                 .collect::<Vec<String>>()
                 .join(" \\\\\n"),
-            OutputType::Markdown => self
-                .module_stats
+            OutputType::Markdown => stat_data
                 .iter()
                 .map(|m| {
                     if m.0.as_str() == "Total" {
@@ -269,20 +346,6 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
 
     let average_lifetime = average_lifetime(issue_aggregator.into_iter())?;
 
-    let mut module_stats: Vec<(String, usize, usize)> = module_stats
-        .iter()
-        .map(|(module, count)| (module.clone(), count.features, count.bugs))
-        .collect();
-    module_stats.sort_by(|a, b| a.0.cmp(&b.0));
-
-    let feature_count = module_stats.iter().map(|(_, f, _)| f).sum();
-    info!("Feature count: {}", feature_count);
-
-    let bug_count = module_stats.iter().map(|(_, _, b)| b).sum();
-    info!("Bug count: {}", bug_count);
-
-    module_stats.push(("Total".to_string(), feature_count, bug_count));
-
     Ok(IssueData {
         client_requests,
         features,
@@ -292,10 +355,10 @@ async fn fetch_issues(version: &str, repo: &str) -> Result<IssueData> {
     })
 }
 
-fn average_lifetime(issues: IntoIter<octocrab::models::issues::Issue>) -> Result<String> {
+fn average_lifetime(issues: IntoIter<octocrab::models::issues::Issue>) -> Result<i64> {
     let len = issues.len() as i64;
 
-    let average_lifetime = issues
+    issues
         .filter_map(|issue| {
             issue.closed_at.and_then(|closed_at| {
                 closed_at
@@ -305,11 +368,7 @@ fn average_lifetime(issues: IntoIter<octocrab::models::issues::Issue>) -> Result
         })
         .sum::<i64>()
         .checked_div(len)
-        .ok_or(eyre!("No issues found for this milestone"))?;
-
-    Ok(duration_to_string(chrono::Duration::seconds(
-        average_lifetime,
-    )))
+        .ok_or(eyre!("No issues found for this milestone"))
 }
 
 fn title(issue: &Issue) -> String {
@@ -332,8 +391,26 @@ fn body(issue: &Issue) -> String {
 #[derive(Clone, Default)]
 struct PrStats {
     total_count: usize,
-    average_lifetime: String,
+    average_lifetime: i64,
     contributor_count: usize,
+}
+
+impl Add<PrStats> for PrStats {
+    type Output = PrStats;
+
+    fn add(self, other: PrStats) -> PrStats {
+        PrStats {
+            total_count: self.total_count + other.total_count,
+            average_lifetime: (self.average_lifetime + other.average_lifetime) / 2,
+            contributor_count: self.contributor_count + other.contributor_count,
+        }
+    }
+}
+
+impl AddAssign for PrStats {
+    fn add_assign(&mut self, other: PrStats) {
+        *self = self.clone() + other;
+    }
 }
 
 async fn pr_stats(version: &str, repo: &str) -> Result<PrStats> {
@@ -350,7 +427,7 @@ async fn pr_stats(version: &str, repo: &str) -> Result<PrStats> {
 
     let mut stats = PrStats {
         total_count: len,
-        average_lifetime: "".to_string(),
+        average_lifetime: 0,
         contributor_count: pulls
             .clone()
             .map(|pr| pr.user.login)
@@ -367,43 +444,57 @@ async fn pr_stats(version: &str, repo: &str) -> Result<PrStats> {
         .checked_div(len as i64)
         .ok_or(eyre!("No PRs found for this milestone"))?;
 
-    stats.average_lifetime = duration_to_string(chrono::Duration::seconds(average_lifetime));
+    stats.average_lifetime = average_lifetime;
 
     Ok(stats)
 }
 
-async fn construct_latex_report(version: &str, issues: &IssueData, pull_stats: &PrStats) -> String {
+async fn construct_latex_report(
+    versions: &[String],
+    issues: &IssueData,
+    pull_stats: &PrStats,
+) -> String {
     std::fmt::format(format_args!(
         include_str!("../resources/report_format.tex.tmpl"),
-        version = version,
+        versions = versions
+            .iter()
+            .map(|v| format!("v{}", v))
+            .collect::<Vec<String>>()
+            .join(", "),
         n_prs = pull_stats.total_count,
         n_closed = issues.client_requests.len() + issues.features.len() + issues.bugfixes.len(),
         client_request_table = issues.client_requests(OutputType::Latex),
         feature_table = issues.features(OutputType::Latex),
         bugfix_table = issues.bugfixes(OutputType::Latex),
-        avg_lifetime = issues.average_lifetime,
-        avg_pr_lifetime = pull_stats.average_lifetime,
+        avg_lifetime = duration_to_string(chrono::Duration::seconds(issues.average_lifetime)),
+        avg_pr_lifetime =
+            duration_to_string(chrono::Duration::seconds(pull_stats.average_lifetime)),
         module_table = issues.module_stats(OutputType::Latex),
         n_contributors = pull_stats.contributor_count,
     ))
 }
 
 async fn construct_markdown_report(
-    version: &str,
+    versions: &[String],
     issues: &IssueData,
     pull_stats: &PrStats,
 ) -> String {
     std::fmt::format(format_args!(
         include_str!("../resources/report_format.md.tmpl"),
         release_date = chrono::Utc::now().format("%Y-%m-%d"),
-        version = version,
+        versions = versions
+            .iter()
+            .map(|v| format!("v{}", v))
+            .collect::<Vec<String>>()
+            .join(", "),
         n_prs = pull_stats.total_count,
         n_closed = issues.client_requests.len() + issues.features.len() + issues.bugfixes.len(),
         client_request_table = issues.client_requests(OutputType::Markdown),
         feature_table = issues.features(OutputType::Markdown),
         bugfix_table = issues.bugfixes(OutputType::Markdown),
-        avg_lifetime = issues.average_lifetime,
-        avg_pr_lifetime = pull_stats.average_lifetime,
+        avg_lifetime = duration_to_string(chrono::Duration::seconds(issues.average_lifetime)),
+        avg_pr_lifetime =
+            duration_to_string(chrono::Duration::seconds(pull_stats.average_lifetime)),
         module_table = issues.module_stats(OutputType::Markdown),
         n_contributors = pull_stats.contributor_count,
     ))
@@ -436,30 +527,37 @@ async fn generate_pdf(path: &str) -> Result<()> {
     Ok(())
 }
 
-async fn run(version: &str) -> Result<i32> {
+async fn run(versions: Vec<String>) -> Result<i32> {
     info!("Fetching issues");
-    let issues = fetch_issues(version, "auction").await?;
+    let mut issues = IssueData::default();
+    let mut pull_stats = PrStats::default();
 
-    info!("Fetching PR stats");
-    let pull_stats = pr_stats(version, "auction").await?;
+    for version in &versions {
+        issues += fetch_issues(version, "auction").await?;
+        pull_stats += pr_stats(version, "auction").await?;
+    }
 
-    latex_report(version, &issues, &pull_stats).await?;
+    info!("Feature count: {}", issues.features.len());
+    info!("Bug count: {}", issues.bugfixes.len());
+    info!("Client request count: {}", issues.client_requests.len());
+
+    latex_report(&versions, &issues, &pull_stats).await?;
     info!("Generated LaTeX and PDF reports");
 
-    markdown_report(version, &issues, &pull_stats).await?;
+    markdown_report(&versions, &issues, &pull_stats).await?;
     info!("Generated Markdown report");
 
     Ok(0)
 }
 
-async fn latex_report(version: &str, issues: &IssueData, pull_stats: &PrStats) -> Result<()> {
+async fn latex_report(versions: &[String], issues: &IssueData, pull_stats: &PrStats) -> Result<()> {
     let dir_path = "releases";
     DirBuilder::new().recursive(true).create(dir_path)?;
-    let path = format!("releases/release-{}.tex", version);
+    let path = format!("releases/release-{}.tex", versions.join("-"));
     let mut file = File::create(&path)?;
 
     file.write_all(
-        construct_latex_report(version, issues, pull_stats)
+        construct_latex_report(versions, issues, pull_stats)
             .await
             .as_bytes(),
     )?;
@@ -467,14 +565,18 @@ async fn latex_report(version: &str, issues: &IssueData, pull_stats: &PrStats) -
     generate_pdf(&path).await
 }
 
-async fn markdown_report(version: &str, issues: &IssueData, pull_stats: &PrStats) -> Result<()> {
+async fn markdown_report(
+    versions: &[String],
+    issues: &IssueData,
+    pull_stats: &PrStats,
+) -> Result<()> {
     let dir_path = "releases";
     DirBuilder::new().recursive(true).create(dir_path)?;
-    let path = format!("releases/release-{}.md", version);
+    let path = format!("releases/release-{}.md", versions.join("-"));
     let mut file = File::create(&path)?;
 
     file.write_all(
-        construct_markdown_report(version, issues, pull_stats)
+        construct_markdown_report(versions, issues, pull_stats)
             .await
             .as_bytes(),
     )?;
